@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Pencil, Tag, Trash2 } from "lucide-react";
-import { useCampaigns, useOrders, usePricing, useProducts } from "@/lib/admin/data";
+import { useCampaigns, useCategories, useOrders, usePricing, useProducts } from "@/lib/admin/data";
+import { buildTree } from "@/lib/catalog";
 import { ErrorBanner, Field, Loading, Modal, ModalActions, PageHeader, PrimaryButton, SearchBox, SelectField, StatGrid, TableCard, td, th } from "@/components/admin/ui";
 import { formatDate, formatINR, formatLakh } from "@/lib/format";
 import type { Campaign, PricingTier } from "@/lib/types";
@@ -11,6 +12,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function TierModal({ open, tier, onClose, onSubmit }: { open: boolean; tier: PricingTier | null; onClose: () => void; onSubmit: (t: Partial<PricingTier>) => Promise<void> }) {
   const { products } = useProducts();
+  const { categories: allCategories } = useCategories();
   const [form, setForm] = useState({ name: "", minQty: "10", maxQty: "", discountPercent: "5", applicable: [] as string[], startDate: today(), endDate: "", status: "active" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,9 @@ function TierModal({ open, tier, onClose, onSubmit }: { open: boolean; tier: Pri
     );
   }, [tier, open]);
 
-  const categories = Array.from(new Set(products.map((p) => p.category)));
+  // Groups first (a tier on a group covers all of its subcategories), then each subcategory.
+  const tree = buildTree(allCategories);
+  const categories = Array.from(new Set([...tree.map((g) => g.name), ...tree.flatMap((g) => g.children.map((c) => c.name)), ...products.map((p) => p.category)]));
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const min = parseInt(form.minQty);
@@ -69,12 +73,12 @@ function TierModal({ open, tier, onClose, onSubmit }: { open: boolean; tier: Pri
     <Modal open={open} onClose={onClose} title={tier ? "Edit Pricing Tier" : "New Pricing Tier"} footer={<ModalActions onCancel={onClose} submitLabel={tier ? "Update Tier" : "Create Tier"} loading={saving} form="tier-form" />}>
       <form id="tier-form" onSubmit={submit} className="space-y-4">
         <Field label="Tier Name" required value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="e.g., Bulk Buyer 10+" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label="Min Qty" type="number" min={1} value={form.minQty} onChange={(e) => setForm((prev) => ({ ...prev, minQty: e.target.value }))} />
           <Field label="Max Qty" type="number" min={1} value={form.maxQty} onChange={(e) => setForm((prev) => ({ ...prev, maxQty: e.target.value }))} placeholder="No limit" />
           <Field label="Discount %" type="number" min={1} max={90} step="0.5" value={form.discountPercent} onChange={(e) => setForm((prev) => ({ ...prev, discountPercent: e.target.value }))} />
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label="Start Date" type="date" value={form.startDate} onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))} />
           <Field label="End Date" type="date" value={form.endDate} onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))} />
           <SelectField label="Status" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
@@ -86,7 +90,7 @@ function TierModal({ open, tier, onClose, onSubmit }: { open: boolean; tier: Pri
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">Applicable To</label>
           <p className="text-xs text-gray-500 mb-3">Leave everything unselected to apply to all products. Applied automatically at checkout when a line reaches the minimum quantity.</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
             {categories.map((c) => (
               <button
                 type="button"
@@ -180,7 +184,7 @@ function CampaignModal({ open, campaign, onClose, onSubmit }: { open: boolean; c
     >
       <form id="campaign-form" onSubmit={submit} className="space-y-4">
         <Field label="Campaign Name" required value={form.name} onChange={set("name")} />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SelectField label="Type" value={form.type} onChange={set("type")}>
             {["Seasonal", "Limited Time", "Monthly", "Festive", "Clearance"].map((t) => (
               <option key={t}>{t}</option>
@@ -193,7 +197,7 @@ function CampaignModal({ open, campaign, onClose, onSubmit }: { open: boolean; c
             <option>Completed</option>
           </SelectField>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Budget (₹)" type="number" min={0} value={form.budget} onChange={set("budget")} />
           <Field label="Spent (₹)" type="number" min={0} value={form.spent} onChange={set("spent")} />
           <Field label="Reach (dealers)" type="number" min={0} value={form.reach} onChange={set("reach")} />

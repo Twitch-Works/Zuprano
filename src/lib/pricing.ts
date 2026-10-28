@@ -8,6 +8,8 @@ export interface PricedLine {
   productId: string;
   name: string;
   category?: string;
+  /** Parent group of the category, so a tier on "Mobile Phones" covers every brand under it. */
+  group?: string;
   price: number;
   quantity: number;
 }
@@ -30,7 +32,7 @@ function tierApplies(tier: PricingTier, line: PricedLine) {
   if (line.quantity < tier.minQty) return false;
   if (tier.maxQty !== null && tier.maxQty > 0 && line.quantity > tier.maxQty) return false;
   if (tier.applicableProducts.length === 0) return true;
-  const keys = [line.productId, line.name, line.category ?? ""].map((k) => k.toLowerCase());
+  const keys = [line.productId, line.name, line.category ?? "", line.group ?? ""].map((k) => k.toLowerCase());
   return tier.applicableProducts.some((a) => keys.includes(a.trim().toLowerCase()));
 }
 

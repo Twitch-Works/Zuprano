@@ -41,6 +41,9 @@ export function toProduct(r: Row): Product {
     tags: r.tags ?? [],
     compatibility: r.compatibility ?? [],
     variants: Array.isArray(r.variants) ? r.variants : [],
+    specs: Array.isArray(r.specs)
+      ? r.specs.filter((s: any) => s && s.label && s.value).map((s: any) => ({ label: String(s.label), value: String(s.value) }))
+      : [],
     rating: num(r.rating),
     reviews: num(r.reviews_count),
     createdAt: r.created_at,
@@ -69,6 +72,7 @@ export function fromProductInput(p: Partial<Product>): Row {
     tags: p.tags ?? [],
     compatibility: p.compatibility ?? [],
     variants: p.variants ?? [],
+    specs: p.specs ?? [],
   };
   Object.keys(row).forEach((k) => row[k] === undefined && delete row[k]);
   return row;
@@ -225,6 +229,7 @@ export function toCategory(r: Row): Category {
     image: r.image ?? "",
     isVisible: !!r.is_visible,
     isSystem: !!r.is_system,
+    parentId: r.parent_id ?? null,
     sortOrder: num(r.sort_order),
     createdAt: r.created_at,
   };

@@ -45,7 +45,7 @@ export function Input({ label, error, helperText, className = "", ...rest }: Inp
     <div className="w-full">
       {label && <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-[#86868b] mb-2">{label}</label>}
       <input
-        className={`w-full px-4 py-3 bg-[#f9f9f9] border border-[#d2d2d7] rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors text-[13px] font-medium text-[#1d1d1f] disabled:bg-[#eee] disabled:cursor-not-allowed disabled:border-[#d2d2d7] ${
+        className={`w-full px-4 py-3 bg-[#f9f9f9] border border-[#d2d2d7] rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors text-base md:text-[13px] font-medium text-[#1d1d1f] disabled:bg-[#eee] disabled:cursor-not-allowed disabled:border-[#d2d2d7] ${
           error ? "border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50" : ""
         } ${className}`}
         {...rest}
@@ -86,7 +86,7 @@ export function Toast({ type, message, onClose }: { type: ToastType; message: st
   };
   const icons = { success: "✓", error: "✕", info: "ℹ" };
   return (
-    <div className={`fixed bottom-4 right-4 max-w-sm p-4 rounded-lg border shadow-lg flex items-start gap-3 animate-slideInUp z-[300] ${styles[type]}`}>
+    <div className={`fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:max-w-sm p-4 rounded-lg border shadow-lg flex items-start gap-3 animate-slideInUp z-[300] ${styles[type]}`}>
       <span className="text-xl font-bold flex-shrink-0">{icons[type]}</span>
       <p className="flex-1 text-sm">{message}</p>
       <button onClick={onClose} className="text-xl font-bold opacity-50 hover:opacity-100 transition-opacity">

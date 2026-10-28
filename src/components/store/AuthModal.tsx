@@ -17,7 +17,7 @@ function ErrorNote({ message, small = false }: { message: string; small?: boolea
   return (
     <div className="bg-red-50 p-3 rounded-xl flex items-center gap-3 border border-red-100 mt-2">
       <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse" />
-      <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">{message}</p>
+      <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">{message}</p>
     </div>
   );
 }
@@ -68,7 +68,7 @@ function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () => void }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            className="w-full h-11 bg-gray-50 border border-gray-200 rounded-lg px-3 text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-0 transition-all outline-none"
+            className="w-full h-11 bg-gray-50 border border-gray-200 rounded-lg px-3 text-base md:text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-0 transition-all outline-none"
             placeholder="your@email.com"
           />
         </div>
@@ -89,7 +89,7 @@ function LoginForm({ onSwitchToSignup }: { onSwitchToSignup: () => void }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-lg px-3 text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-0 transition-all outline-none"
+              className="w-full h-12 bg-gray-50 border border-gray-200 rounded-lg px-3 text-base md:text-sm font-medium focus:bg-white focus:border-orange-500 focus:ring-0 transition-all outline-none"
               placeholder="••••••••"
             />
             <button
@@ -159,8 +159,8 @@ function SignupForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   };
 
   const fieldCls =
-    "w-full h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 text-[12px] font-bold focus:bg-white focus:border-black focus:ring-0 transition-all outline-none";
-  const labelCls = "text-[9px] font-black uppercase tracking-[0.2em] text-[#1d1d1f]";
+    "w-full h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 text-base md:text-[12px] font-bold focus:bg-white focus:border-black focus:ring-0 transition-all outline-none";
+  const labelCls = "text-[10px] font-black uppercase tracking-[0.2em] text-[#1d1d1f]";
 
   return (
     <form onSubmit={submit} className="space-y-4 animate-in">
@@ -267,13 +267,13 @@ function OtpForm() {
         <form onSubmit={request} className="space-y-6">
           <div className="space-y-4">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1d1d1f]">Phone Number</label>
-            <div className="flex gap-4">
-              <div className="flex items-center justify-center w-20 h-14 bg-gray-50 border border-gray-100 rounded-xl text-[13px] font-black">+91</div>
+            <div className="flex gap-2 sm:gap-4">
+              <div className="flex items-center justify-center w-16 sm:w-20 h-14 bg-gray-50 border border-gray-100 rounded-xl text-[13px] font-black">+91</div>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 h-14 bg-gray-50 border border-gray-100 rounded-xl px-4 text-[13px] font-bold focus:bg-white focus:border-black focus:ring-0 transition-all outline-none"
+                className="flex-1 h-14 bg-gray-50 border border-gray-100 rounded-xl px-4 text-base md:text-[13px] font-bold focus:bg-white focus:border-black focus:ring-0 transition-all outline-none"
                 placeholder="98765 43210"
               />
             </div>
@@ -305,7 +305,7 @@ function OtpForm() {
               </div>
             </div>
             <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2 text-[9px] font-black text-[#86868b] uppercase tracking-widest">
+              <div className="flex items-center gap-2 text-[10px] font-black text-[#86868b] uppercase tracking-widest">
                 {timer > 0 ? (
                   <>
                     SECURE WINDOW CLOSES IN <span className="text-orange-600">{timer}S</span>
@@ -429,7 +429,7 @@ export function AuthModal() {
               ))}
             </div>
             <div className="flex flex-col items-center gap-3 py-3 text-center">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest max-w-[250px] leading-relaxed">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest max-w-[250px] leading-relaxed">
                 Your payment is safe and secure. 100% protected.
               </p>
             </div>

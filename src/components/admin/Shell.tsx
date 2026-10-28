@@ -37,15 +37,17 @@ export const NAV = [
   { path: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 
-function Sidebar({ collapsed, mobileOpen, onCloseMobile }: { collapsed: boolean; mobileOpen: boolean; onCloseMobile: () => void }) {
+function Sidebar({ collapsed: collapsedSetting, mobileOpen, onCloseMobile }: { collapsed: boolean; mobileOpen: boolean; onCloseMobile: () => void }) {
   const pathname = usePathname();
+  // The icon-only rail is a desktop preference; the mobile drawer always shows labels.
+  const collapsed = collapsedSetting && !mobileOpen;
   const { dealers } = useDealers();
   const pending = dealers.filter((d) => d.verificationStatus === "pending").length;
 
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-30 bg-white border-r border-gray-200 flex flex-col h-screen transition-all duration-300 ease-in-out ${
-        collapsed ? "w-20" : "w-64"
+        collapsed ? "w-20" : "w-72 lg:w-64"
       } ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} lg:sticky lg:top-0`}
     >
       <div className={`px-4 py-4 h-16 border-b border-gray-200 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>

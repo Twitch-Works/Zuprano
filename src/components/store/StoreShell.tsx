@@ -6,6 +6,7 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { CartDrawer } from "./CartDrawer";
 import { AuthModal } from "./AuthModal";
+import { MobileTabBar } from "./MobileTabBar";
 import { Toast } from "./ui";
 import { useAuth } from "@/stores/auth";
 import { useUI } from "@/stores/ui";
@@ -31,12 +32,13 @@ export function StoreShell({ children }: { children: React.ReactNode }) {
       <Navbar />
       <main
         className={`flex-1 w-full ${
-          fullBleed ? "py-0 px-0" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12"
+          fullBleed ? "py-0 px-0" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-12"
         } pb-24 md:pb-8`}
       >
         {children}
       </main>
       <Footer />
+      <MobileTabBar />
       <CartDrawer />
       <AuthModal />
       {toast && <Toast key={toast.id} type={toast.type} message={toast.message} onClose={closeToast} />}

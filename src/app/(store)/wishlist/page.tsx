@@ -12,7 +12,7 @@ export default function WishlistPage() {
   const { items, isLoading, loadedFor } = useWishlist();
 
   if (!initialized || (user && (isLoading || loadedFor !== user.id))) {
-    return <div className="text-center py-32 text-[#86868b] text-[11px] font-black uppercase tracking-widest">Loading drops...</div>;
+    return <div className="text-center py-32 text-[#86868b] text-[11px] font-black uppercase tracking-widest">Loading wishlist…</div>;
   }
   if (!user) return <SignInRequired message="Access your saved items and personalized collections." />;
 
@@ -30,26 +30,26 @@ export default function WishlistPage() {
         </div>
         <h2 className="text-2xl md:text-3xl font-black tracking-tighter text-[#1d1d1f] uppercase mb-4">Your Wishlist is Empty</h2>
         <p className="text-[#86868b] mb-10 text-[13px] font-medium max-w-sm text-center">
-          Save items you love and they&apos;ll appear here. Curate your perfect setup.
+          Tap the heart on any phone or accessory to save it here for later.
         </p>
         <button
           onClick={() => router.push("/shop")}
           className="bg-[#1d1d1f] text-white px-10 py-4 rounded-md text-[13px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-sm"
         >
-          Explore Collections
+          Start Shopping
         </button>
       </div>
     );
   }
 
   return (
-    <div className="bg-white min-h-screen pt-12 pb-24 font-sans">
-      <div className="max-w-[1400px] mx-auto px-6">
-        <div className="flex items-center justify-between mb-12 border-b border-[#eee] pb-8">
-          <h1 className="text-3xl lg:text-5xl font-black text-[#1d1d1f] tracking-tighter uppercase">Saved Drops</h1>
+    <div className="bg-white min-h-screen pt-2 md:pt-8 pb-12 md:pb-24 font-sans">
+      <div className="max-w-[1400px] mx-auto">
+        <div className="flex items-center justify-between gap-4 mb-6 md:mb-12 border-b border-[#eee] pb-4 md:pb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-5xl font-black text-[#1d1d1f] tracking-tighter uppercase">Wishlist</h1>
           <span className="text-[11px] font-black uppercase tracking-widest text-[#86868b]">{items.length} Items</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-6 md:gap-y-10">
           {items.map((i) => (
             <ProductCard key={i.id} product={i.product} />
           ))}

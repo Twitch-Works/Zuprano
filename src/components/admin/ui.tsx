@@ -7,8 +7,8 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-        <p className="text-gray-600 mt-2">{subtitle}</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{title}</h1>
+        <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">{subtitle}</p>
       </div>
       {action}
     </div>
@@ -30,12 +30,12 @@ export function PrimaryButton({ children, onClick, icon = true, type = "button",
 
 export function StatGrid({ items, cols = 4 }: { items: { label: string; value: ReactNode; color: string; icon?: ReactNode }[]; cols?: 3 | 4 }) {
   return (
-    <div className={`grid grid-cols-1 ${cols === 4 ? "md:grid-cols-4" : "md:grid-cols-3"} gap-6`}>
+    <div className={`grid grid-cols-2 ${cols === 4 ? "lg:grid-cols-4" : "md:grid-cols-3"} gap-3 md:gap-6`}>
       {items.map((s) => (
         <div key={s.label} className={`${s.color} rounded-lg p-4 border border-gray-100 ${s.icon ? "flex items-center justify-between" : ""}`}>
           <div>
-            <h3 className="text-sm font-medium text-gray-600">{s.label}</h3>
-            <p className="text-2xl font-bold text-gray-900 mt-2">{s.value}</p>
+            <h3 className="text-xs md:text-sm font-medium text-gray-600">{s.label}</h3>
+            <p className="text-xl md:text-2xl font-bold text-gray-900 mt-1 md:mt-2 break-words">{s.value}</p>
           </div>
           {s.icon}
         </div>
@@ -46,8 +46,8 @@ export function StatGrid({ items, cols = 4 }: { items: { label: string; value: R
 
 export function SearchBox({ value, onChange, placeholder, children }: { value: string; onChange: (v: string) => void; placeholder: string; children?: ReactNode }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <div className="flex flex-col sm:flex-row gap-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-4">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
         <div className="flex-1 relative">
           <Search size={18} className="absolute left-3 top-3 text-gray-400" />
           <input
@@ -67,8 +67,8 @@ export function SearchBox({ value, onChange, placeholder, children }: { value: s
 export function TableCard({ title, children, action }: { title: ReactNode; children: ReactNode; action?: ReactNode }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-300">
-      <div className="bg-gray-50 border-b border-gray-200 p-6 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+      <div className="bg-gray-50 border-b border-gray-200 p-4 md:p-6 flex flex-wrap items-center justify-between gap-3 md:gap-4">
+        <h2 className="text-base md:text-lg font-semibold text-gray-900">{title}</h2>
         {action}
       </div>
       <div className="overflow-x-auto">{children}</div>
@@ -76,8 +76,8 @@ export function TableCard({ title, children, action }: { title: ReactNode; child
   );
 }
 
-export const th = "text-left py-3 px-6 text-sm font-semibold text-gray-700 whitespace-nowrap";
-export const td = "py-3 px-6 text-sm";
+export const th = "text-left py-3 px-4 md:px-6 text-sm font-semibold text-gray-700 whitespace-nowrap";
+export const td = "py-3 px-4 md:px-6 text-sm";
 
 export function EmptyRow({ colSpan, title, hint, onClear }: { colSpan: number; title: string; hint: string; onClear?: () => void }) {
   return (
@@ -103,16 +103,21 @@ export function Modal({ open, onClose, title, children, footer, width = "max-w-2
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className={`bg-white rounded-xl ${width} w-full max-h-[90vh] overflow-y-auto pointer-events-auto animate-in`}>
-          <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex items-center justify-between z-10">
-            <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+      {/* Bottom sheet on phones, centred dialog from sm up. */}
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
+        <div className={`bg-white rounded-t-2xl sm:rounded-xl ${width} w-full max-h-[92vh] sm:max-h-[90vh] overflow-y-auto pointer-events-auto animate-in`}>
+          <div className="sticky top-0 bg-white px-4 py-4 sm:p-6 border-b border-gray-200 flex items-center justify-between gap-4 z-10">
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-900">{title}</h2>
             <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-gray-100 rounded-lg">
               <X size={24} />
             </button>
           </div>
-          <div className="p-6 space-y-6">{children}</div>
-          {footer && <div className="px-6 pb-6 flex items-center justify-end gap-3 pt-6 border-t border-gray-200 mx-6">{footer}</div>}
+          <div className="p-4 sm:p-6 space-y-6">{children}</div>
+          {footer && (
+            <div className="sticky bottom-0 bg-white px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-end gap-3 border-t border-gray-200 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {footer}
+            </div>
+          )}
         </div>
       </div>
     </>

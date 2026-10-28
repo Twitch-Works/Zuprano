@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, LoaderCircle, Lock, ShieldCheck, Truck } from "lucide-react";
+import { groupOf } from "@/lib/catalog";
 import { computeTotals } from "@/lib/pricing";
 import { useCart } from "@/stores/cart";
 import { useAuth } from "@/stores/auth";
@@ -40,14 +41,14 @@ function loadRazorpay(): Promise<boolean> {
 }
 
 const inputCls =
-  "w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-[#f9f9f9] border border-[#d2d2d7] rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors text-[11px] sm:text-[12px] md:text-[13px] font-medium text-[#1d1d1f]";
-const labelCls = "text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-[#86868b]";
+  "w-full px-3 sm:px-4 py-2.5 md:py-3 bg-[#f9f9f9] border border-[#d2d2d7] rounded-md focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors text-base md:text-[13px] font-medium text-[#1d1d1f]";
+const labelCls = "text-[10px] font-black uppercase tracking-[0.2em] text-[#86868b]";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, clearCart } = useCart();
   const user = useAuth((s) => s.user);
-  const { tiers, fetchTiers } = useCatalog();
+  const { tiers, fetchTiers, categories, fetchProducts } = useCatalog();
   const showToast = useUI((s) => s.showToast);
 
   const [step, setStep] = useState<Step>("address");
@@ -59,7 +60,8 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     fetchTiers();
-  }, [fetchTiers]);
+    fetchProducts();
+  }, [fetchTiers, fetchProducts]);
 
   // Prefill from the signed-in profile and its default saved address.
   useEffect(() => {
@@ -77,8 +79,11 @@ export default function CheckoutPage() {
   }, [user]);
 
   const totals = useMemo(
-    () => computeTotals(items.map((i) => ({ productId: i.productId, name: i.name, category: i.category, price: i.price, quantity: i.quantity })), tiers),
-    [items, tiers],
+    () => computeTotals(
+        items.map((i) => ({ productId: i.productId, name: i.name, category: i.category, group: groupOf(i.category, categories)?.name, price: i.price, quantity: i.quantity })),
+        tiers,
+      ),
+    [items, tiers, categories],
   );
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((prev) => ({ ...prev, [k]: e.target.value }));
@@ -170,7 +175,7 @@ export default function CheckoutPage() {
   if (items.length === 0 && step !== "confirmation") {
     return (
       <div className="bg-[#f9f9f9] min-h-[60vh] flex items-center justify-center">
-        <div className="text-center p-12 bg-white rounded-2xl shadow-sm border border-[#eee] max-w-md w-full mx-6">
+        <div className="text-center p-8 sm:p-12 bg-white rounded-2xl shadow-sm border border-[#eee] max-w-md w-full">
           <h2 className="text-2xl font-black text-[#1d1d1f] uppercase tracking-tighter mb-4">Your Cart is Empty</h2>
           <p className="text-[#86868b] text-[13px] font-medium mb-8">Add a few drops to your arsenal before checking out.</p>
           <Link
@@ -195,7 +200,7 @@ export default function CheckoutPage() {
       <div className="max-w-[1200px] mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
         <div className="mb-6 sm:mb-8 md:mb-12">
           <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-[#1d1d1f] tracking-tighter uppercase mb-2 sm:mb-3 md:mb-4">Secure Checkout</h1>
-          <div className="flex items-center gap-1.5 sm:gap-2 text-[7px] sm:text-[8px] md:text-[9px] lg:text-[10px] font-black uppercase tracking-widest text-[#86868b] flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] font-black uppercase tracking-widest text-[#86868b] flex-wrap">
             <span className={step === "address" ? "text-orange-600" : ""}>Shipping Address</span>
             <ChevronRight size={12} className="text-[#d2d2d7]" />
             <span className={step === "payment" ? "text-orange-600" : ""}>Secure Payment</span>
@@ -289,7 +294,7 @@ export default function CheckoutPage() {
                           >
                             {m.label}
                           </span>
-                          <span className="block text-[9px] sm:text-[10px] text-[#86868b] mt-0.5">
+                          <span className="block text-[10px] text-[#86868b] mt-0.5">
                             {m.disabled ? "Online payments are not configured yet" : m.hint}
                           </span>
                         </div>
@@ -329,11 +334,11 @@ export default function CheckoutPage() {
                 </div>
                 <div className="space-y-1.5 sm:space-y-2 md:space-y-4">
                   <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-[#1d1d1f] tracking-tighter uppercase">Order Confirmed</h2>
-                  <p className="text-[9px] sm:text-[10px] md:text-[11px] lg:text-[13px] font-medium text-[#86868b] uppercase tracking-widest">
+                  <p className="text-[10px] md:text-[11px] lg:text-[13px] font-medium text-[#86868b] uppercase tracking-widest">
                     Order <span className="text-[#1d1d1f] font-black">#{result.orderNumber}</span> has been placed.
                   </p>
                   {result.trackingId && (
-                    <p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-[#86868b] uppercase tracking-widest">
+                    <p className="text-[10px] md:text-[11px] font-medium text-[#86868b] uppercase tracking-widest">
                       Tracking ID <span className="text-[#1d1d1f] font-black">{result.trackingId}</span>
                     </p>
                   )}
@@ -363,13 +368,13 @@ export default function CheckoutPage() {
                       <div className="w-14 sm:w-16 h-14 sm:h-16 bg-[#f9f9f9] rounded-lg overflow-visible border border-[#eee] flex items-center justify-center relative flex-shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={i.thumbnail} alt="" className="w-full h-full object-contain mix-blend-multiply" />
-                        <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#1d1d1f] text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center rounded-full">
+                        <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#1d1d1f] text-white text-[10px] font-bold flex items-center justify-center rounded-full">
                           {i.quantity}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-[#1d1d1f] text-[11px] sm:text-sm line-clamp-1">{i.name}</p>
-                        <p className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest text-[#86868b] mb-1">{i.variantLabel === "STD" ? "" : i.variantLabel}</p>
+                        <p className="text-[10px] uppercase font-black tracking-widest text-[#86868b] mb-1">{i.variantLabel === "STD" ? "" : i.variantLabel}</p>
                         <p className="text-xs sm:text-sm font-black text-[#1d1d1f]">₹{(i.price * i.quantity).toLocaleString("en-IN")}</p>
                       </div>
                     </div>
@@ -381,7 +386,7 @@ export default function CheckoutPage() {
                   <Row label="GST (18%)" value={`₹${totals.tax.toLocaleString("en-IN")}`} />
                   <div className="flex justify-between items-center text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-[#86868b]">
                     <span>Express Shipping</span>
-                    <span className="text-orange-600 font-black uppercase tracking-widest text-[9px] sm:text-[10px] md:text-[11px]">
+                    <span className="text-orange-600 font-black uppercase tracking-widest text-[10px] md:text-[11px]">
                       {totals.shipping === 0 ? "FREE" : `₹${totals.shipping}`}
                     </span>
                   </div>
@@ -393,11 +398,11 @@ export default function CheckoutPage() {
                 <div className="bg-[#f9f9f9] rounded-lg sm:rounded-xl p-3 sm:p-4 flex flex-col gap-3 sm:gap-4 border border-[#eee] mt-3 sm:mt-4">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <ShieldCheck size={18} className="text-orange-600 flex-shrink-0" />
-                    <p className="text-[8px] sm:text-[9px] md:text-[10px] font-black text-[#1d1d1f] uppercase tracking-[0.1em]">256-bit Secure Encryption</p>
+                    <p className="text-[10px] font-black text-[#1d1d1f] uppercase tracking-[0.1em]">256-bit Secure Encryption</p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3">
                     <Truck size={18} className="text-orange-600 flex-shrink-0" />
-                    <p className="text-[8px] sm:text-[9px] md:text-[10px] font-black text-[#1d1d1f] uppercase tracking-[0.1em]">Ships same day if ordered before 2PM</p>
+                    <p className="text-[10px] font-black text-[#1d1d1f] uppercase tracking-[0.1em]">Ships same day if ordered before 2PM</p>
                   </div>
                 </div>
               </div>

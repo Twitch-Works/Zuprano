@@ -2,25 +2,33 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, FolderTree, LoaderCircle, Lock, Pencil, Trash2, TriangleAlert, Upload } from "lucide-react";
+import { CornerDownRight, Eye, EyeOff, FolderPlus, FolderTree, LoaderCircle, Lock, Pencil, Trash2, TriangleAlert, Upload } from "lucide-react";
 import { uploadProductImage, useCategories, useProducts } from "@/lib/admin/data";
-import { ErrorBanner, Field, Loading, Modal, ModalActions, PageHeader, PrimaryButton, SearchBox, StatGrid, TableCard, TextField, td, th } from "@/components/admin/ui";
+import { ErrorBanner, Field, Loading, Modal, ModalActions, PageHeader, PrimaryButton, SearchBox, SelectField, StatGrid, TableCard, TextField, td, th } from "@/components/admin/ui";
 import type { Category } from "@/lib/types";
 
 function CategoryModal({
   open,
   category,
+  parentId,
+  groups,
+  hasChildren,
   nextOrder,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   category: Category | null;
-  nextOrder: number;
+  /** Parent preselected for a new category ("Add subcategory"). */
+  parentId: string | null;
+  /** Top-level categories that can hold subcategories. */
+  groups: Category[];
+  hasChildren: boolean;
+  nextOrder: (parentId: string | null) => number;
   onClose: () => void;
   onSubmit: (c: Partial<Category>) => Promise<void>;
 }) {
-  const [form, setForm] = useState({ name: "", description: "", image: "", sortOrder: "0", isVisible: true });
+  const [form, setForm] = useState({ name: "", description: "", image: "", sortOrder: "0", isVisible: true, parentId: "" });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +37,18 @@ function CategoryModal({
     setError(null);
     setForm(
       category
-        ? { name: category.name, description: category.description, image: category.image, sortOrder: String(category.sortOrder), isVisible: category.isVisible }
-        : { name: "", description: "", image: "", sortOrder: String(nextOrder), isVisible: true },
+        ? {
+            name: category.name,
+            description: category.description,
+            image: category.image,
+            sortOrder: String(category.sortOrder),
+            isVisible: category.isVisible,
+            parentId: category.parentId ?? "",
+          }
+        : { name: "", description: "", image: "", sortOrder: String(nextOrder(parentId)), isVisible: true, parentId: parentId ?? "" },
     );
-  }, [category, open, nextOrder]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, open, parentId]);
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,7 +76,7 @@ function CategoryModal({
         description: form.description,
         image: form.image.trim(),
         sortOrder: parseInt(form.sortOrder) || 0,
-        ...(category?.isSystem ? {} : { isVisible: form.isVisible }),
+        ...(category?.isSystem ? {} : { isVisible: form.isVisible, parentId: form.parentId || null }),
       });
       onClose();
     } catch (err) {
@@ -75,7 +91,7 @@ function CategoryModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={category ? "Edit Category" : "Add Category"}
+      title={category ? "Edit Category" : form.parentId ? "Add Subcategory" : "Add Category"}
       width="max-w-lg"
       footer={<ModalActions onCancel={onClose} submitLabel={category ? "Save Changes" : "Create Category"} loading={saving || uploading} form="category-form" />}
     >
@@ -89,6 +105,33 @@ function CategoryModal({
           placeholder="e.g., Screen Protectors"
         />
         {category && !category.isSystem && <p className="text-xs text-gray-500 -mt-2">Renaming updates every product in this category automatically.</p>}
+        {!category?.isSystem && (
+          <div>
+            <SelectField
+              label="Parent Category"
+              value={form.parentId}
+              disabled={hasChildren}
+              onChange={(e) => {
+                const parent = e.target.value;
+                setForm((prev) => ({ ...prev, parentId: parent, sortOrder: category ? prev.sortOrder : String(nextOrder(parent || null)) }));
+              }}
+            >
+              <option value="">None (top-level group)</option>
+              {groups
+                .filter((g) => g.id !== category?.id)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+            </SelectField>
+            <p className="text-xs text-gray-500 mt-1.5">
+              {hasChildren
+                ? "This category has subcategories, so it stays a top-level group."
+                : "Top-level groups (e.g. Mobile Phones) appear in the store menu; subcategories (e.g. Samsung) appear inside them."}
+            </p>
+          </div>
+        )}
         <TextField label="Description" rows={2} value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
         <div>
           <label className="block text-sm font-semibold text-gray-900 mb-2">Image</label>
@@ -119,7 +162,9 @@ function CategoryModal({
           <label className="flex items-center justify-between p-3 border border-gray-100 rounded-lg cursor-pointer">
             <div>
               <p className="font-medium text-gray-900">Visible to shoppers</p>
-              <p className="text-xs text-gray-500">Hidden categories hide all of their products from the store.</p>
+              <p className="text-xs text-gray-500">
+                {hasChildren ? "Hiding a group also hides all of its subcategories and their products." : "Hidden categories hide all of their products from the store."}
+              </p>
             </div>
             <input
               type="checkbox"
@@ -139,12 +184,14 @@ function DeleteModal({
   category,
   categories,
   productCount,
+  childCount,
   onClose,
   onConfirm,
 }: {
   category: Category | null;
   categories: Category[];
   productCount: number;
+  childCount: number;
   onClose: () => void;
   onConfirm: (targetId: string | null) => Promise<void>;
 }) {
@@ -186,16 +233,26 @@ function DeleteModal({
       footer={
         <>
           <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-200 rounded-lg">
-            Cancel
+            {childCount > 0 ? "Close" : "Cancel"}
           </button>
-          <button type="submit" form="delete-category" disabled={saving} className="px-6 py-2 bg-red-600 text-white rounded-lg font-medium disabled:opacity-50">
-            {saving ? "Deleting..." : "Delete Category"}
-          </button>
+          {childCount === 0 && (
+            <button type="submit" form="delete-category" disabled={saving} className="px-6 py-2 bg-red-600 text-white rounded-lg font-medium disabled:opacity-50">
+              {saving ? "Deleting..." : "Delete Category"}
+            </button>
+          )}
         </>
       }
     >
       <form id="delete-category" onSubmit={submit} className="space-y-4">
-        {productCount === 0 ? (
+        {childCount > 0 ? (
+          <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+            <TriangleAlert size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <p>
+              <strong>{category.name}</strong> has {childCount} subcategor{childCount === 1 ? "y" : "ies"}. Delete them or move them to another group (edit each one and
+              change its parent) before deleting this group.
+            </p>
+          </div>
+        ) : productCount === 0 ? (
           <p className="text-sm text-gray-600">This category has no products. It will be removed permanently.</p>
         ) : (
           <>
@@ -253,7 +310,7 @@ export default function CategoriesPage() {
   const { categories, loading, error, createCategory, updateCategory, deleteCategory } = useCategories();
   const { products } = useProducts();
   const [search, setSearch] = useState("");
-  const [editModal, setEditModal] = useState<{ category: Category | null } | null>(null);
+  const [editModal, setEditModal] = useState<{ category: Category | null; parentId: string | null } | null>(null);
   const [deleting, setDeleting] = useState<Category | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -267,15 +324,41 @@ export default function CategoriesPage() {
     if (p.isPublic && p.isActive) c.live += 1;
     counts.set(p.category, c);
   });
+  const byOrder = (a: Category, b: Category) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name);
+  const childrenOf = (id: string) => categories.filter((c) => c.parentId === id).sort(byOrder);
+  // A group's numbers include its subcategories.
+  const countFor = (c: Category) =>
+    [c, ...childrenOf(c.id)].reduce(
+      (acc, x) => {
+        const n = counts.get(x.name);
+        return { total: acc.total + (n?.total ?? 0), live: acc.live + (n?.live ?? 0) };
+      },
+      { total: 0, live: 0 },
+    );
   const system = categories.find((c) => c.isSystem);
   const regular = categories.filter((c) => !c.isSystem);
+  const groups = regular.filter((c) => !c.parentId).sort(byOrder);
+  const subs = regular.filter((c) => c.parentId);
   const uncategorized = system ? counts.get(system.name)?.total ?? 0 : 0;
-  const q = search.toLowerCase();
-  const filtered = categories.filter((c) => c.name.toLowerCase().includes(q) || c.slug.includes(q));
+  const nextOrder = (parentId: string | null) =>
+    Math.max(0, ...regular.filter((c) => (c.parentId ?? null) === parentId).map((c) => c.sortOrder)) + 1;
+
+  // Groups followed by their subcategories; while searching, any match keeps its group visible for context.
+  const q = search.toLowerCase().trim();
+  const matches = (c: Category) => !q || c.name.toLowerCase().includes(q) || c.slug.includes(q);
+  const rows: Category[] = [];
+  groups.forEach((g) => {
+    const kids = childrenOf(g.id);
+    const kidHits = kids.filter(matches);
+    if (matches(g) || kidHits.length) rows.push(g, ...(matches(g) ? kids : kidHits));
+  });
+  if (system && matches(system)) rows.push(system);
 
   const toggleVisibility = async (c: Category) => {
-    const n = counts.get(c.name)?.total ?? 0;
-    if (c.isVisible && n > 0 && !window.confirm(`Hide "${c.name}"? Its ${n} product${n === 1 ? "" : "s"} will disappear from the store until you show it again.`)) return;
+    const n = countFor(c).total;
+    const kids = childrenOf(c.id).length;
+    const what = kids ? `its ${kids} subcategories and ${n} product${n === 1 ? "" : "s"}` : `its ${n} product${n === 1 ? "" : "s"}`;
+    if (c.isVisible && (n > 0 || kids > 0) && !window.confirm(`Hide "${c.name}"? ${what[0].toUpperCase()}${what.slice(1)} will disappear from the store until you show it again.`)) return;
     try {
       await updateCategory(c.id, { isVisible: !c.isVisible });
       setNotice({ ok: true, text: `"${c.name}" is now ${c.isVisible ? "hidden from" : "visible in"} the store.` });
@@ -288,14 +371,14 @@ export default function CategoriesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Categories"
-        subtitle="Organise your catalogue and control what shoppers can see"
-        action={<PrimaryButton onClick={() => setEditModal({ category: null })}>Add Category</PrimaryButton>}
+        subtitle="Organise phones, accessories and protection into groups and subcategories"
+        action={<PrimaryButton onClick={() => setEditModal({ category: null, parentId: null })}>Add Category</PrimaryButton>}
       />
 
       <StatGrid
         items={[
-          { label: "Total Categories", value: regular.length, color: "bg-blue-50" },
-          { label: "Visible", value: regular.filter((c) => c.isVisible).length, color: "bg-green-50" },
+          { label: "Groups", value: groups.length, color: "bg-blue-50" },
+          { label: "Subcategories", value: subs.length, color: "bg-green-50" },
           { label: "Hidden", value: regular.filter((c) => !c.isVisible).length, color: "bg-gray-50" },
           { label: "Uncategorized Products", value: uncategorized, color: uncategorized ? "bg-amber-50" : "bg-purple-50" },
         ]}
@@ -322,35 +405,43 @@ export default function CategoriesPage() {
 
       <SearchBox value={search} onChange={setSearch} placeholder="Search categories..." />
 
-      <TableCard title={`Category List (${filtered.length})`}>
+      <TableCard title={`Category Tree (${rows.length})`}>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
               <th className={th}>Category</th>
               <th className={`${th} text-right`}>Products</th>
-              <th className={`${th} text-right`}>Order</th>
+              <th className={`${th} text-right hidden md:table-cell`}>Order</th>
               <th className={th}>Visibility</th>
               <th className={th}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c) => {
-              const n = counts.get(c.name) ?? { total: 0, live: 0 };
+            {rows.map((c) => {
+              const n = countFor(c);
+              const isGroup = !c.parentId && !c.isSystem;
+              const parent = c.parentId ? categories.find((x) => x.id === c.parentId) : undefined;
+              const hiddenByParent = !!parent && !parent.isVisible;
               return (
-                <tr key={c.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${c.isSystem ? "bg-gray-50/60" : ""}`}>
+                <tr
+                  key={c.id}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${c.isSystem ? "bg-gray-50/60" : isGroup ? "bg-orange-50/30" : ""}`}
+                >
                   <td className={td}>
-                    <div className="flex items-center gap-3">
+                    <div className={`flex items-center gap-3 ${c.parentId ? "pl-4 md:pl-8" : ""}`}>
+                      {c.parentId && <CornerDownRight size={14} className="text-gray-300 shrink-0" />}
                       {c.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                        <img src={c.image} alt="" className={`${isGroup ? "w-11 h-11" : "w-9 h-9"} rounded-lg object-cover border border-gray-100 shrink-0`} />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300">
-                          <FolderTree size={18} />
+                        <div className={`${isGroup ? "w-11 h-11" : "w-9 h-9"} rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0`}>
+                          <FolderTree size={16} />
                         </div>
                       )}
-                      <div>
-                        <div className="font-medium text-gray-900 flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className={`${isGroup ? "font-bold" : "font-medium"} text-gray-900 flex items-center gap-2 whitespace-nowrap`}>
                           {c.name}
+                          {isGroup && <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600">Group · {childrenOf(c.id).length}</span>}
                           {c.isSystem && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-gray-900 text-white px-1.5 py-0.5 rounded">
                               <Lock size={10} /> Default
@@ -358,7 +449,7 @@ export default function CategoriesPage() {
                           )}
                         </div>
                         <div className="text-xs text-gray-500">/{c.slug}</div>
-                        {c.description && <div className="text-xs text-gray-500 mt-0.5 line-clamp-1 max-w-md">{c.description}</div>}
+                        {c.description && <div className="hidden md:block text-xs text-gray-500 mt-0.5 line-clamp-1 max-w-md">{c.description}</div>}
                       </div>
                     </div>
                   </td>
@@ -366,30 +457,44 @@ export default function CategoriesPage() {
                     <Link href={`/admin/products?category=${encodeURIComponent(c.name)}`} className="font-medium text-gray-900 hover:text-orange-600">
                       {n.total}
                     </Link>
-                    <div className="text-xs text-gray-500">{n.live} live</div>
+                    <div className="text-xs text-gray-500 whitespace-nowrap">{n.live} live</div>
                   </td>
-                  <td className={`${td} text-right text-gray-600`}>{c.sortOrder}</td>
+                  <td className={`${td} text-right text-gray-600 hidden md:table-cell`}>{c.sortOrder}</td>
                   <td className={td}>
                     {c.isSystem ? (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 whitespace-nowrap">
                         <EyeOff size={12} /> Always hidden
                       </span>
                     ) : (
-                      <button
-                        onClick={() => toggleVisibility(c)}
-                        title={c.isVisible ? "Hide from store" : "Show in store"}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          c.isVisible ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                        }`}
-                      >
-                        {c.isVisible ? <Eye size={12} /> : <EyeOff size={12} />}
-                        {c.isVisible ? "Visible" : "Hidden"}
-                      </button>
+                      <div>
+                        <button
+                          onClick={() => toggleVisibility(c)}
+                          title={c.isVisible ? "Hide from store" : "Show in store"}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                            c.isVisible ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                        >
+                          {c.isVisible ? <Eye size={12} /> : <EyeOff size={12} />}
+                          {c.isVisible ? "Visible" : "Hidden"}
+                        </button>
+                        {hiddenByParent && c.isVisible && <p className="text-[11px] text-amber-600 mt-1 whitespace-nowrap">Hidden by {parent!.name}</p>}
+                      </div>
                     )}
                   </td>
                   <td className={td}>
-                    <div className="flex items-center gap-2">
-                      <button type="button" aria-label="Edit" onClick={() => setEditModal({ category: c })} className="p-2 hover:bg-blue-100 rounded text-blue-600 transition-colors">
+                    <div className="flex items-center gap-1">
+                      {isGroup && (
+                        <button
+                          type="button"
+                          aria-label={`Add subcategory to ${c.name}`}
+                          title="Add subcategory"
+                          onClick={() => setEditModal({ category: null, parentId: c.id })}
+                          className="p-2 hover:bg-orange-100 rounded text-orange-600 transition-colors"
+                        >
+                          <FolderPlus size={16} />
+                        </button>
+                      )}
+                      <button type="button" aria-label="Edit" onClick={() => setEditModal({ category: c, parentId: c.parentId })} className="p-2 hover:bg-blue-100 rounded text-blue-600 transition-colors">
                         <Pencil size={16} />
                       </button>
                       {!c.isSystem && (
@@ -409,7 +514,10 @@ export default function CategoriesPage() {
       <CategoryModal
         open={!!editModal}
         category={editModal?.category ?? null}
-        nextOrder={Math.max(0, ...regular.map((c) => c.sortOrder)) + 1}
+        parentId={editModal?.parentId ?? null}
+        groups={groups}
+        hasChildren={!!editModal?.category && childrenOf(editModal.category.id).length > 0}
+        nextOrder={nextOrder}
         onClose={() => setEditModal(null)}
         onSubmit={(data) => (editModal?.category ? updateCategory(editModal.category.id, data) : createCategory(data))}
       />
@@ -417,6 +525,7 @@ export default function CategoriesPage() {
         category={deleting}
         categories={categories}
         productCount={deleting ? counts.get(deleting.name)?.total ?? 0 : 0}
+        childCount={deleting ? childrenOf(deleting.id).length : 0}
         onClose={() => setDeleting(null)}
         onConfirm={async (targetId) => {
           const name = deleting!.name;

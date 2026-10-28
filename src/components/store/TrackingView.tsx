@@ -54,13 +54,13 @@ export function TrackingView({ initialId = "" }: { initialId?: string }) {
   const statusLabel = result ? (result.status === "processing" ? "confirmed" : result.status) : "";
 
   return (
-    <div className="bg-[#fcfcfc] min-h-[80vh] pt-12 pb-24 font-sans">
-      <div className="max-w-[800px] mx-auto px-6">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl lg:text-4xl font-black text-[#1d1d1f] tracking-tighter uppercase mb-2">Track Order</h1>
+    <div className="bg-[#fcfcfc] min-h-[80vh] pt-2 md:pt-12 pb-12 md:pb-24 font-sans">
+      <div className="max-w-[800px] mx-auto sm:px-6">
+        <div className="text-center mb-6 md:mb-12">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#1d1d1f] tracking-tighter uppercase mb-2">Track Order</h1>
           <p className="text-[11px] font-black uppercase tracking-widest text-[#86868b]">Real-time delivery updates</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-[#eee] p-8 md:p-10 mb-8 max-w-2xl mx-auto animate-in">
+        <div className="bg-white rounded-2xl shadow-sm border border-[#eee] p-5 sm:p-8 md:p-10 mb-8 max-w-2xl mx-auto animate-in">
           <div className="flex flex-col sm:flex-row gap-4 relative">
             <div className="flex-1 w-full">
               <Input placeholder="E.g., TRK123456789" value={id} onChange={(e) => setId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && track(id)} />
@@ -74,7 +74,7 @@ export function TrackingView({ initialId = "" }: { initialId?: string }) {
 
         {result && (
           <div className="space-y-8 max-w-2xl mx-auto animate-in">
-            <div className="bg-white rounded-2xl shadow-sm border border-[#eee] p-8 md:p-10 text-center">
+            <div className="bg-white rounded-2xl shadow-sm border border-[#eee] p-5 sm:p-8 md:p-10 text-center">
               <span className="inline-block px-3 py-1 bg-orange-50 text-orange-600 text-[10px] font-black uppercase tracking-[0.2em] rounded mb-4">{statusLabel}</span>
               <h2 className="text-3xl font-black text-[#1d1d1f] tracking-tight mb-2">
                 {result.status === "cancelled" ? "—" : formatDate(result.estimatedDelivery)}
@@ -87,7 +87,7 @@ export function TrackingView({ initialId = "" }: { initialId?: string }) {
                 {result.trackingId ? ` · ${result.trackingId}` : ""}
               </p>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-[#eee] p-8 md:p-10">
+            <div className="bg-white rounded-2xl shadow-sm border border-[#eee] p-5 sm:p-8 md:p-10">
               <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1d1d1f] mb-8 border-b border-[#eee] pb-4">Tracking History</h3>
               <div className="space-y-8 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[#eee] before:to-transparent">
                 {events.map((ev, i) => (
@@ -96,7 +96,7 @@ export function TrackingView({ initialId = "" }: { initialId?: string }) {
                     <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-4 rounded-xl border border-[#eee] bg-[#f9f9f9] shadow-sm">
                       <div className="flex items-center justify-between mb-1 gap-2">
                         <div className="font-bold text-[#1d1d1f] text-sm">{LABELS[ev.status]?.title ?? ev.status}</div>
-                        <div className="text-[9px] font-black text-[#86868b] uppercase tracking-widest">{formatDate(ev.at)}</div>
+                        <div className="text-[10px] font-black text-[#86868b] uppercase tracking-widest">{formatDate(ev.at)}</div>
                       </div>
                       <div className="text-[12px] text-[#86868b] mb-2">
                         {ev.status === "delivered" && result.destination ? result.destination : "Zuprano Fulfilment Centre"} · {formatDateTime(ev.at)}

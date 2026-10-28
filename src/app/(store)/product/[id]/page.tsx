@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronRight, ChevronUp, Heart, Info, Layers, Lock, Package, Share2, ShieldCheck, Star, Target, Truck, X, Zap } from "lucide-react";
+import { ArrowRight, BatteryFull, Camera, ChevronDown, ChevronRight, ChevronUp, Cpu, HardDrive, Heart, Info, Layers, Lock, MemoryStick, Package, Share2, ShieldCheck, Smartphone, Star, Target, Truck, X, Zap } from "lucide-react";
 import { ProductCard } from "@/components/store/ProductCard";
 import { getSupabase } from "@/lib/supabase/client";
 import { normalizeVariants, toProduct } from "@/lib/mappers";
-import { canonicalCategory } from "@/lib/catalog";
+import { canonicalCategory, categoryHref, filterProducts, groupOf, isPhone } from "@/lib/catalog";
 import type { Product, Variant } from "@/lib/types";
 import { useCart } from "@/stores/cart";
 import { useUI } from "@/stores/ui";
@@ -15,17 +15,29 @@ import { useAuth } from "@/stores/auth";
 import { useWishlist } from "@/stores/wishlist";
 import { useCatalog } from "@/stores/catalog";
 
+const KEY_SPECS = [
+  { label: "Display", match: /display|screen/i, icon: Smartphone },
+  { label: "Processor", match: /processor|chip|cpu/i, icon: Cpu },
+  { label: "RAM", match: /^ram$/i, icon: MemoryStick },
+  { label: "Storage", match: /storage|rom/i, icon: HardDrive },
+  { label: "Camera", match: /^(rear |main )?camera$/i, icon: Camera },
+  { label: "Battery", match: /battery/i, icon: BatteryFull },
+];
+
+/** Brand name -> the device name accessories list under "compatible with". */
+const DEVICE_ALIAS: Record<string, string> = { apple: "iPhone", google: "Pixel" };
+
 function Accordion({ title, open, onClick, children }: { title: string; open: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <div className="border-b border-gray-100 last:border-0">
       <button
         onClick={onClick}
-        className="w-full py-6 flex justify-between items-center text-[11px] font-bold uppercase tracking-[0.2em] text-gray-900 transition-all hover:text-orange-600"
+        className="w-full py-4 md:py-5 flex justify-between items-center text-[13px] font-bold text-gray-900 transition-all hover:text-orange-600"
       >
         <span>{title}</span>
         {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
-      {open && <div className="pb-8 text-[14px] leading-relaxed text-gray-500 font-medium animate-in">{children}</div>}
+      {open && <div className="pb-6 text-[14px] leading-relaxed text-gray-600 animate-in">{children}</div>}
     </div>
   );
 }
@@ -66,11 +78,12 @@ function SizeGuide({ onClose }: { onClose: () => void }) {
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const addItem = useCart((s) => s.addItem);
   const { showToast, openAuthModal } = useUI();
   const user = useAuth((s) => s.user);
   const { isInWishlist, toggle } = useWishlist();
-  const { products, fetchProducts } = useCatalog();
+  const { products, categories, fetchProducts } = useCatalog();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,18 +121,18 @@ export default function ProductPage() {
 
   if (loading) {
     return (
-      <div className="max-w-[1400px] mx-auto px-6 py-32 flex flex-col items-center">
+      <div className="max-w-[1400px] mx-auto px-4 py-24 md:py-32 flex flex-col items-center">
         <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Loading Drop...</p>
+        <p className="text-sm text-gray-400">Loading product…</p>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="text-center py-40 max-w-[1400px] mx-auto px-6">
+      <div className="text-center py-24 md:py-40 max-w-[1400px] mx-auto px-4">
         <Info size={48} className="mx-auto text-orange-600 mb-6" />
-        <h2 className="text-4xl font-black tracking-tighter uppercase mb-4">Drop Not Found</h2>
+        <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">Product not found</h2>
         <Link href="/shop" className="inline-block bg-black text-white px-10 py-4 text-[11px] font-black uppercase tracking-widest rounded-lg">
           Return to Shop
         </Link>
@@ -132,8 +145,30 @@ export default function ProductPage() {
   const stock = current.stock;
   const saved = isInWishlist(product.id);
   const images = product.images.length ? product.images : [product.thumbnail];
-  const mrp = product.originalPrice && product.originalPrice > current.price ? product.originalPrice : Math.round(current.price * 1.3);
-  const related = products.filter((p) => p.id !== product.id && canonicalCategory(p.category) === canonicalCategory(product.category)).slice(0, 4);
+  const mrp = product.originalPrice && product.originalPrice > current.price ? product.originalPrice : null;
+  const off = mrp ? Math.round(((mrp - current.price) / mrp) * 100) : 0;
+  const phone = isPhone(product, categories);
+  const group = groupOf(product.category, categories);
+  const protection = group ? canonicalCategory(group.name) === "mobile-protection" : false;
+  const highlights = KEY_SPECS.map((k) => ({ ...k, value: product.specs.find((s) => k.match.test(s.label))?.value })).filter((k) => k.value);
+  const specRows: [string, string][] = product.specs.length
+    ? product.specs.map((s) => [s.label, s.value])
+    : [
+        ["Brand", product.brand || "Zuprano"],
+        ["Category", product.category],
+        ...(variants[0].id !== "default" ? [[variants[0].name, variants.map((v) => v.value).join(", ")] as [string, string]] : []),
+      ];
+  if (product.compatibility.length) specRows.push(["Compatible with", product.compatibility.join(", ")]);
+
+  const same = filterProducts(products, { category: [product.category] }, "newest", categories).filter((p) => p.id !== product.id);
+  const related = same.length ? same.slice(0, 4) : group ? filterProducts(products, { category: [group.name] }, "newest", categories).filter((p) => p.id !== product.id).slice(0, 4) : [];
+  // For a phone, suggest accessories that list it (or its brand) as compatible.
+  const deviceKey = DEVICE_ALIAS[product.brand.toLowerCase()] ?? product.brand;
+  const forThisPhone = phone && deviceKey
+    ? filterProducts(products, { device: [product.name.replace(new RegExp(`^${product.brand}\\s+`, "i"), ""), deviceKey] }, "relevance", categories)
+        .filter((p) => !isPhone(p, categories))
+        .slice(0, 4)
+    : [];
   const fill = Math.max(4, Math.min(100, (stock / Math.max(product.stock, 1)) * 100));
 
   const addToCart = () => {
@@ -141,6 +176,13 @@ export default function ProductPage() {
     if (qty > stock) return showToast("error", `Only ${stock} available`);
     addItem(product, current, qty);
     showToast("success", "Added to cart!");
+  };
+
+  const buyNow = () => {
+    if (stock <= 0) return showToast("error", "Out of stock");
+    if (qty > stock) return showToast("error", `Only ${stock} available`);
+    addItem(product, current, qty);
+    router.push("/checkout");
   };
 
   const toggleWishlist = async () => {
@@ -164,109 +206,98 @@ export default function ProductPage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <div className="w-full max-w-[1280px] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        <nav className="flex items-center gap-2 text-[7px] sm:text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-6 sm:mb-8 md:mb-10">
-          <Link href="/" className="hover:text-black">Home</Link>
+      <div className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8">
+        <nav className="flex items-center gap-1.5 text-[12px] text-gray-400 mb-4 md:mb-8 min-w-0">
+          <Link href="/" className="hover:text-black shrink-0">Home</Link>
+          {group && group.name !== product.category && (
+            <>
+              <span>/</span>
+              <Link href={categoryHref(group.name)} className="hover:text-black shrink-0">{group.name}</Link>
+            </>
+          )}
           <span>/</span>
-          <Link href={`/shop?category=${encodeURIComponent(product.category)}`} className="hover:text-black">
-            {product.category}
-          </Link>
-          <span>/</span>
-          <span className="text-black truncate">{product.name}</span>
+          <Link href={categoryHref(product.category)} className="hover:text-black shrink-0">{product.category}</Link>
+          <span className="hidden sm:inline">/</span>
+          <span className="hidden sm:inline text-gray-900 truncate">{product.name}</span>
         </nav>
 
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={toggleWishlist}
-              aria-label="Toggle wishlist"
-              className="p-2 rounded-lg border border-gray-200 hover:border-orange-600 hover:bg-orange-50 transition-all"
-            >
-              <Heart size={16} className={saved ? "fill-orange-600 text-orange-600" : "text-gray-900"} />
-            </button>
-            <button onClick={share} aria-label="Share" className="p-2 rounded-lg border border-gray-200 hover:border-blue-600 hover:bg-blue-50 transition-all">
-              <Share2 size={16} className="text-gray-900" />
-            </button>
-          </div>
-          <div className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wider">SKU: {product.sku || `ZUP-${product.id.slice(0, 5)}`}</div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 md:gap-8 lg:gap-10 items-start">
-          <div className="lg:col-span-7 space-y-2 sm:space-y-3">
-            <div className="sticky top-16 sm:top-20 md:top-24 z-10">
-              <div className="bg-gradient-to-br from-[#fafafa] to-[#f5f5f5] rounded-xl md:rounded-2xl aspect-[3/4] flex items-center justify-center p-1 md:p-2 lg:p-3 overflow-hidden border border-gray-100 shadow-xl hover:shadow-2xl transition-all duration-500">
-                <div className="w-full h-full bg-white rounded-lg md:rounded-xl flex items-center justify-center shadow-inner">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={images[image] || product.thumbnail}
-                    alt={product.name}
-                    className="w-[90%] h-[90%] object-contain mix-blend-multiply transition-transform duration-700 hover:scale-110"
-                  />
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 lg:gap-12 items-start">
+          <div className="lg:col-span-7 lg:sticky lg:top-28">
+            <div className="relative bg-[#f5f5f7] rounded-2xl aspect-square lg:aspect-[4/5] overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={images[image] || product.thumbnail} alt={product.name} className="absolute inset-0 w-full h-full object-cover mix-blend-multiply" />
+              <div className="absolute top-3 right-3 flex flex-col gap-2">
+                <button onClick={toggleWishlist} aria-label="Toggle wishlist" className="w-10 h-10 rounded-full bg-white/90 shadow-sm flex items-center justify-center">
+                  <Heart size={18} className={saved ? "fill-red-500 text-red-500" : "text-gray-900"} />
+                </button>
+                <button onClick={share} aria-label="Share" className="w-10 h-10 rounded-full bg-white/90 shadow-sm flex items-center justify-center">
+                  <Share2 size={18} className="text-gray-900" />
+                </button>
               </div>
-              <div className="flex gap-2 mt-2 sm:mt-3 overflow-x-auto pb-1 scrollbar-hide">
+            </div>
+            {images.length > 1 && (
+              <div className="flex gap-2 mt-3 overflow-x-auto pb-1 no-scrollbar">
                 {images.map((src, i) => (
                   <button
                     key={i}
                     onClick={() => setImage(i)}
-                    className={`shrink-0 w-16 sm:w-20 aspect-square rounded-lg md:rounded-lg border-2 transition-all overflow-hidden ${
-                      image === i ? "border-black shadow-md" : "border-gray-200 opacity-60 hover:opacity-100"
+                    aria-label={`Show image ${i + 1}`}
+                    className={`shrink-0 w-16 sm:w-20 aspect-square rounded-lg border-2 transition-all overflow-hidden bg-[#f5f5f7] ${
+                      image === i ? "border-black" : "border-transparent opacity-60 hover:opacity-100"
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} className="w-full h-full object-cover" alt="" />
+                    <img src={src} className="w-full h-full object-cover mix-blend-multiply" alt="" />
                   </button>
                 ))}
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="lg:col-span-5 flex flex-col justify-start">
-            {stock > 0 ? (
-              <div className="mb-4 p-2.5 sm:p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[8px] sm:text-[9px] font-bold text-green-700 uppercase">✓ In Stock</span>
-                  <span className="text-[8px] sm:text-[9px] text-green-600 font-semibold">{stock} available</span>
-                </div>
-                <div className="w-full h-1 bg-green-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: `${fill}%` }} />
-                </div>
-              </div>
-            ) : (
-              <div className="mb-4 p-2.5 sm:p-3 bg-red-50 border border-red-200 rounded-lg">
-                <span className="text-[8px] sm:text-[9px] font-bold text-red-700 uppercase">✕ Out of Stock</span>
+          <div className="lg:col-span-5 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className="text-[12px] font-black uppercase tracking-[0.15em] text-orange-600">{product.brand || "Zuprano"}</span>
+              <span className="w-1 h-1 bg-gray-300 rounded-full" />
+              <span className="text-[12px] text-gray-400">SKU {product.sku || `ZUP-${product.id.slice(0, 5)}`}</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight leading-tight">{product.name}</h1>
+            {product.reviews > 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[12px] font-bold px-2 py-0.5 rounded">
+                  {product.rating.toFixed(1)} <Star size={11} fill="currentColor" />
+                </span>
+                <span className="text-[12px] text-gray-500">{product.reviews.toLocaleString("en-IN")} ratings</span>
               </div>
             )}
 
-            <div className="space-y-1.5 mb-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] text-orange-600">{product.brand || "Zuprano"}</span>
-                <span className="w-0.5 h-0.5 bg-gray-300 rounded-full" />
-                <span className="text-gray-400 text-[7px] sm:text-[8px] md:text-[9px] font-bold uppercase tracking-wider">Verified</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-gray-900 tracking-tight leading-snug">{product.name}</h1>
+            <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mt-4 pb-5 border-b border-gray-100">
+              <span className="text-3xl font-black text-gray-900">₹{current.price.toLocaleString("en-IN")}</span>
+              {mrp && <span className="text-base text-gray-400 line-through">₹{mrp.toLocaleString("en-IN")}</span>}
+              {off >= 1 && <span className="text-base font-bold text-green-600">{off}% off</span>}
+              <span className="basis-full text-[12px] text-gray-500">Inclusive of all taxes</span>
             </div>
 
-            <div className="flex items-start gap-3 sm:gap-4 mb-6 md:mb-8 pb-4 sm:pb-6 border-b border-gray-100">
-              <div className="flex flex-col">
-                <span className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900">₹{current.price.toLocaleString("en-IN")}</span>
-                <span className="text-xs text-gray-400 line-through font-semibold">₹{mrp.toLocaleString("en-IN")}</span>
+            {phone && highlights.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-5 border-b border-gray-100">
+                {highlights.map((h) => (
+                  <div key={h.label} className="flex items-start gap-2.5 rounded-xl bg-[#f6f6f8] p-3 min-w-0">
+                    <h.icon size={18} className="text-orange-600 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] text-gray-500">{h.label}</p>
+                      <p className="text-[13px] font-semibold text-gray-900 leading-snug break-words">{h.value}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex flex-col gap-0.5">
-                <div className="flex gap-0.5 text-orange-500">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={12} fill={i < Math.round(product.rating || 5) ? "currentColor" : "none"} />
-                  ))}
-                </div>
-                <span className="text-[7px] sm:text-[8px] font-bold text-gray-500 uppercase">({product.reviews})</span>
-              </div>
-            </div>
+            )}
 
-            <div className="space-y-3 bg-gray-50 p-3 rounded-lg border border-gray-100 mb-6 md:mb-8">
-              {variants.length > 0 && variants[0].id !== "default" && (
-                <div className="space-y-2">
-                  <label className="text-[7px] sm:text-[8px] md:text-[9px] font-bold uppercase tracking-[0.15em] text-gray-500">Size / Style</label>
-                  <div className="flex flex-wrap gap-1.5">
+            <div className="py-5 space-y-4">
+              {variants[0].id !== "default" && (
+                <div>
+                  <p className="text-[13px] font-semibold text-gray-900 mb-2">
+                    {current.name === "Option" ? "Choose an option" : current.name}: <span className="text-gray-500 font-normal">{current.value}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
                     {variants.map((v) => (
                       <button
                         key={v.id}
@@ -275,129 +306,164 @@ export default function ProductPage() {
                           setQty(1);
                         }}
                         disabled={v.stock <= 0}
-                        className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[8px] md:text-[9px] font-bold uppercase transition-all disabled:opacity-30 disabled:line-through ${
-                          current.id === v.id ? "bg-black text-white shadow-md" : "bg-white text-gray-900 border border-gray-200 hover:border-black"
+                        className={`px-4 py-2.5 rounded-xl text-[13px] font-semibold border-2 transition-all disabled:opacity-30 disabled:line-through ${
+                          current.id === v.id ? "border-black bg-black text-white" : "border-gray-200 bg-white text-gray-900 hover:border-gray-400"
                         }`}
                       >
                         {v.value}
+                        {v.price !== variants[0].price && <span className={`block text-[11px] font-normal ${current.id === v.id ? "text-white/70" : "text-gray-500"}`}>₹{v.price.toLocaleString("en-IN")}</span>}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
+
+              {stock > 0 ? (
+                <div>
+                  <div className="flex items-center justify-between text-[12px] mb-1.5">
+                    <span className="font-semibold text-green-700">In stock</span>
+                    <span className="text-gray-500">{stock < 10 ? `Only ${stock} left` : `${stock} available`}</span>
+                  </div>
+                  <div className="w-full h-1 bg-green-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500" style={{ width: `${fill}%` }} />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[13px] font-semibold text-red-600">Currently out of stock</p>
+              )}
+
               <div className="flex gap-2">
-                <div className="flex items-center bg-white border border-gray-200 rounded-lg px-1 h-11">
-                  <button onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease" className="w-7 text-lg font-bold">
+                <div className="flex items-center border border-gray-200 rounded-xl h-12 shrink-0">
+                  <button onClick={() => setQty(Math.max(1, qty - 1))} aria-label="Decrease quantity" className="w-10 h-full text-lg font-bold">
                     −
                   </button>
-                  <span className="flex-1 text-center font-black text-sm min-w-[24px]">{qty}</span>
-                  <button onClick={() => setQty(Math.min(Math.max(stock, 1), qty + 1))} aria-label="Increase" className="w-7 text-lg font-bold">
+                  <span className="w-6 text-center font-bold text-sm">{qty}</span>
+                  <button onClick={() => setQty(Math.min(Math.max(stock, 1), qty + 1))} aria-label="Increase quantity" className="w-10 h-full text-lg font-bold">
                     +
                   </button>
                 </div>
                 <button
                   onClick={addToCart}
                   disabled={stock <= 0}
-                  className="flex-1 bg-black text-white rounded-lg font-black text-[10px] md:text-[11px] uppercase tracking-[0.1em] transition-all hover:bg-orange-600 active:scale-95 shadow-lg hover:shadow-xl py-3 md:py-3 disabled:opacity-40"
+                  className="flex-1 h-12 border-2 border-black text-black rounded-xl font-bold text-sm transition-all hover:bg-gray-50 active:scale-[0.98] disabled:opacity-40"
                 >
-                  {stock > 0 ? "Add to Cart" : "Out of Stock"}
+                  Add to Cart
                 </button>
               </div>
+              <button
+                onClick={buyNow}
+                disabled={stock <= 0}
+                className="w-full h-12 bg-orange-600 text-white rounded-xl font-bold text-sm transition-all hover:bg-orange-700 active:scale-[0.98] disabled:opacity-40"
+              >
+                {stock > 0 ? "Buy Now" : "Out of Stock"}
+              </button>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-4 gap-2 pb-5">
               {[
-                { icon: <ShieldCheck size={14} className="text-orange-600" />, label: "Warranty" },
-                { icon: <Truck size={14} className="text-blue-600" />, label: "Free Ship" },
-                { icon: <Package size={14} className="text-purple-600" />, label: "Returns" },
-                { icon: <Lock size={14} className="text-green-600" />, label: "Secure" },
+                { icon: <ShieldCheck size={18} className="text-orange-600" />, label: phone ? "Brand warranty" : "Warranty" },
+                { icon: <Truck size={18} className="text-blue-600" />, label: "Fast delivery" },
+                { icon: <Package size={18} className="text-purple-600" />, label: "Easy returns" },
+                { icon: <Lock size={18} className="text-green-600" />, label: "Secure pay" },
               ].map((b) => (
-                <div key={b.label} className="p-2.5 border border-gray-100 rounded-lg flex flex-col items-center text-center gap-1">
+                <div key={b.label} className="p-2.5 border border-gray-100 rounded-xl flex flex-col items-center text-center gap-1.5">
                   {b.icon}
-                  <p className="text-[6px] font-bold text-gray-600 uppercase">{b.label}</p>
+                  <p className="text-[11px] font-semibold text-gray-600 leading-tight">{b.label}</p>
                 </div>
               ))}
             </div>
 
-            <button
-              onClick={() => setSizeGuide(true)}
-              className="w-full mb-4 p-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-between group"
-            >
-              <span className="text-[9px] md:text-[10px] font-bold text-gray-900">📐 Size Guide</span>
-              <ChevronRight size={14} className="text-gray-400 group-hover:translate-x-0.5 transition-transform" />
-            </button>
+            {protection && (
+              <button
+                onClick={() => setSizeGuide(true)}
+                className="w-full mb-2 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all flex items-center justify-between group"
+              >
+                <span className="text-[13px] font-semibold text-gray-900">📐 Size Guide</span>
+                <ChevronRight size={16} className="text-gray-400 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
 
-            <div className="border-t border-gray-100 pt-4">
+            <div className="border-t border-gray-100">
               <Accordion title="About This Product" open={section === "details"} onClick={() => setSection(section === "details" ? null : "details")}>
-                <p className="mb-4">{product.description}</p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-gray-900 font-bold text-[12px]">
-                    <Layers size={14} /> Premium Materials
+                <p className={protection ? "mb-4" : ""}>{product.description || "No description yet."}</p>
+                {protection && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-gray-900 font-semibold text-[13px]">
+                      <Layers size={15} /> Premium materials
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-900 font-semibold text-[13px]">
+                      <Target size={15} /> Precision fit
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-900 font-semibold text-[13px]">
+                      <Zap size={15} /> Drop tested
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-gray-900 font-bold text-[12px]">
-                    <Target size={14} /> Precision Fit
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-900 font-bold text-[12px]">
-                    <Zap size={14} /> Drop Tested
-                  </div>
-                </div>
+                )}
               </Accordion>
               <Accordion title="Specifications" open={section === "specs"} onClick={() => setSection(section === "specs" ? null : "specs")}>
-                <div className="space-y-2 text-[12px]">
-                  {[
-                    ["Material:", "Premium TPU + Polycarbonate"],
-                    ["Weight:", "~45g"],
-                    ["Colors:", `${variants.length}+ Options`],
-                    ["Drop Protection:", "Up to 3 meters"],
-                    ...(product.compatibility.length ? [["Compatible:", product.compatibility.join(", ")]] : []),
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-4">
-                      <span className="text-gray-500">{k}</span>
-                      <span className="font-bold text-gray-900 text-right">{v}</span>
+                <dl className="divide-y divide-gray-100 text-[13px]">
+                  {specRows.map(([k, v]) => (
+                    <div key={k} className="grid grid-cols-[40%_1fr] gap-4 py-2.5">
+                      <dt className="text-gray-500">{k}</dt>
+                      <dd className="font-semibold text-gray-900 break-words">{v}</dd>
                     </div>
                   ))}
+                </dl>
+              </Accordion>
+              <Accordion title="Delivery & Returns" open={section === "shipping"} onClick={() => setSection(section === "shipping" ? null : "shipping")}>
+                <div className="space-y-2 text-[13px] text-gray-700 leading-relaxed">
+                  <p>✓ Ships within 1-2 business days</p>
+                  <p>✓ Delivery in 3-5 days across India</p>
+                  <p>✓ Free delivery on orders above ₹500</p>
+                  <p>✓ {phone ? "Returns accepted for sealed units and manufacturing defects" : "Hassle-free returns"}</p>
+                  <p>✓ 100% authentic, brand new product</p>
                 </div>
               </Accordion>
-              <Accordion title="Shipping & Returns" open={section === "shipping"} onClick={() => setSection(section === "shipping" ? null : "shipping")}>
-                <div className="space-y-2 text-[12px] text-gray-700 leading-relaxed">
-                  <p>✓ Free Shipping: Ships within 1-2 business days</p>
-                  <p>✓ Delivery: 3-5 days across India</p>
-                  <p>✓ Returns: 14-day hassle-free return policy</p>
-                  <p>✓ Quality: 100% authentic, brand new product</p>
-                </div>
-              </Accordion>
-              <Accordion title="Security & Trust" open={section === "trust"} onClick={() => setSection(section === "trust" ? null : "trust")}>
-                <div className="space-y-2 text-[12px] text-gray-700 leading-relaxed">
+              <Accordion title="Payments & Security" open={section === "trust"} onClick={() => setSection(section === "trust" ? null : "trust")}>
+                <div className="space-y-2 text-[13px] text-gray-700 leading-relaxed">
                   <div className="flex gap-2"><span>🔒</span><span>Secure SSL encryption for all transactions</span></div>
+                  <div className="flex gap-2"><span>💳</span><span>UPI, cards and cash on delivery</span></div>
                   <div className="flex gap-2"><span>✓</span><span>100% authentic products guaranteed</span></div>
-                  <div className="flex gap-2"><span>💳</span><span>Safe payment options (UPI, Card, Wallet)</span></div>
-                  <div className="flex gap-2"><span>⭐</span><span>Trusted by 50,000+ customers</span></div>
                 </div>
               </Accordion>
             </div>
           </div>
         </div>
 
+        {forThisPhone.length > 0 && (
+          <RelatedRow title={`Accessories for ${product.name}`} subtitle="Cases, chargers and more that fit this phone" href={`/shop?device=${encodeURIComponent(deviceKey)}`} items={forThisPhone} />
+        )}
         {related.length > 0 && (
-          <div className="mt-32 pt-20 border-t border-gray-100">
-            <div className="flex justify-between items-end mb-12">
-              <div>
-                <h2 className="text-3xl font-black tracking-tighter uppercase">Gear up your setup</h2>
-                <p className="text-gray-400 text-[11px] font-bold uppercase tracking-widest mt-2">Compatible accessories for your device</p>
-              </div>
-              <Link href="/shop" className="group flex items-center gap-2 text-[11px] font-black uppercase tracking-widest">
-                Full Catalog <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              {related.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          </div>
+          <RelatedRow
+            title={phone ? "Similar phones" : "You may also like"}
+            subtitle={`More from ${same.length ? product.category : group?.name}`}
+            href={categoryHref(same.length ? product.category : group?.name ?? product.category)}
+            items={related}
+          />
         )}
       </div>
       {sizeGuide && <SizeGuide onClose={() => setSizeGuide(false)} />}
     </div>
+  );
+}
+
+function RelatedRow({ title, subtitle, href, items }: { title: string; subtitle: string; href: string; items: Product[] }) {
+  return (
+    <section className="mt-12 md:mt-20 pt-8 md:pt-12 border-t border-gray-100">
+      <div className="flex justify-between items-end gap-4 mb-5 md:mb-8">
+        <div className="min-w-0">
+          <h2 className="text-xl md:text-3xl font-black tracking-tight">{title}</h2>
+          <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
+        </div>
+        <Link href={href} className="group shrink-0 flex items-center gap-1 text-sm font-bold text-orange-600">
+          View all <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-6">
+        {items.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
+    </section>
   );
 }

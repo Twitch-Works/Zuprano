@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Copy, Filter, LayoutGrid, List, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useCategories, useProducts } from "@/lib/admin/data";
 import { ProductModal, type ProductDraft } from "@/components/admin/ProductModal";
+import { buildTree } from "@/lib/catalog";
 import { formatINR } from "@/lib/format";
 import type { Product } from "@/lib/types";
 
@@ -25,13 +26,22 @@ function ProductsContent() {
   const [editing, setEditing] = useState<ProductDraft | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Filtering by a group also matches products filed under its subcategories.
+  const selected = allCategories.find((c) => c.name === category);
+  const inCategory = new Set(category ? [category, ...allCategories.filter((c) => selected && c.parentId === selected.id).map((c) => c.name)] : []);
   const q = search.toLowerCase();
   const filtered = products.filter(
     (p) =>
-      (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) && (!category || p.category === category),
+      (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)) && (!category || inCategory.has(p.category)),
   );
-  const categories = Array.from(new Set([...allCategories.map((c) => c.name), ...products.map((p) => p.category)]));
-  const hiddenCategories = new Set(allCategories.filter((c) => !c.isVisible).map((c) => c.name));
+  const tree = buildTree(allCategories);
+  const system = allCategories.find((c) => c.isSystem);
+  const known = new Set(allCategories.map((c) => c.name));
+  const unknown = Array.from(new Set(products.map((p) => p.category))).filter((c) => !known.has(c));
+  const byId = new Map(allCategories.map((c) => [c.id, c]));
+  const hiddenCategories = new Set(
+    allCategories.filter((c) => !c.isVisible || (c.parentId && byId.get(c.parentId)?.isVisible === false)).map((c) => c.name),
+  );
 
   const openCreate = () => {
     setEditing(null);
@@ -82,8 +92,8 @@ function ProductsContent() {
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Products</h1>
-          <p className="text-gray-600 mt-2">Manage your product catalog and inventory</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Products</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">Manage phones, accessories and protection in your catalogue</p>
         </div>
         <button
           onClick={openCreate}
@@ -94,11 +104,11 @@ function ProductsContent() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         {stats.map((s) => (
-          <div key={s.label} className={`${s.bg} rounded-2xl p-6 border border-white shadow-sm backdrop-blur-sm`}>
+          <div key={s.label} className={`${s.bg} rounded-2xl p-4 md:p-6 border border-white shadow-sm backdrop-blur-sm`}>
             <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{s.label}</h3>
-            <p className={`text-4xl font-black ${s.color} mt-2`}>{s.value}</p>
+            <p className={`text-3xl md:text-4xl font-black ${s.color} mt-2`}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -132,15 +142,31 @@ function ProductsContent() {
                 <LayoutGrid size={18} />
               </button>
             </div>
-            <div className="flex items-center gap-3">
-              <Filter size={16} className="text-gray-400" />
+            <div className="flex items-center gap-3 flex-1 min-w-0 lg:flex-none">
+              <Filter size={16} className="text-gray-400 shrink-0" />
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all"
+                className="w-full lg:w-auto min-w-0 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all"
               >
                 <option value="">All Categories</option>
-                {categories.map((c) => (
+                {tree.map((g) =>
+                  g.children.length ? (
+                    <optgroup key={g.id} label={g.name}>
+                      <option value={g.name}>All {g.name}</option>
+                      {g.children.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : (
+                    <option key={g.id} value={g.name}>
+                      {g.name}
+                    </option>
+                  ),
+                )}
+                {[system?.name, ...unknown].filter(Boolean).map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -169,7 +195,7 @@ function ProductsContent() {
           </div>
         ) : view === "list" ? (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="bg-gray-50/50 border-b border-gray-200 p-6 flex items-center justify-between">
+            <div className="bg-gray-50/50 border-b border-gray-200 p-4 md:p-6 flex items-center justify-between gap-3">
               <h2 className="text-lg text-gray-900 font-black tracking-tight uppercase">Inventory List</h2>
               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{filtered.length} Total Items</span>
             </div>
@@ -178,17 +204,17 @@ function ProductsContent() {
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     {["Image", "Product & Brand", "Status", "Price", "Stock"].map((h) => (
-                      <th key={h} className="text-left py-4 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+                      <th key={h} className="text-left py-4 px-4 md:px-6 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
                         {h}
                       </th>
                     ))}
-                    <th className="text-right py-4 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Actions</th>
+                    <th className="text-right py-4 px-4 md:px-6 text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtered.map((p) => (
                     <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-4 md:px-6">
                         <div className="relative inline-block">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -204,16 +230,17 @@ function ProductsContent() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-4 md:px-6">
                         <div className="flex flex-col">
                           <span className="font-bold text-gray-900 line-clamp-1">{p.name}</span>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[9px] font-black text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded uppercase">{p.brand || "No Brand"}</span>
                             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{p.sku}</span>
+                            <span className="text-[10px] font-medium text-gray-500 whitespace-nowrap">{p.category}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-4 md:px-6">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${p.isPublic ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" : "bg-gray-300"}`} />
                           <span className={`text-[10px] font-bold uppercase tracking-wider ${p.isPublic ? "text-green-600" : "text-gray-400"}`}>
@@ -227,13 +254,13 @@ function ProductsContent() {
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-4 md:px-6">
                         <div className="flex flex-col">
                           <span className="font-black text-gray-900">{formatINR(p.price)}</span>
                           {!!p.discount && p.discount > 0 && <span className="text-[9px] font-bold text-red-500">-{p.discount}% Off</span>}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-4 md:px-6">
                         <div className="flex flex-col gap-1.5">
                           <span className={`text-xs font-bold ${p.stock <= 20 ? "text-red-600" : "text-gray-900"}`}>{p.stock} units</span>
                           <div className="w-20 h-1 bg-gray-100 rounded-full overflow-hidden">
@@ -244,7 +271,7 @@ function ProductsContent() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-right">
+                      <td className="py-4 px-4 md:px-6 text-right">
                         <div className="flex items-center gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-all justify-end lg:translate-x-2 lg:group-hover:translate-x-0">
                           <button onClick={() => openEdit(p)} title="Edit" className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
                             <Pencil size={16} />

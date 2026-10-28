@@ -71,7 +71,7 @@ export function UserModal({
           value={form.password}
           onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SelectField label="Status" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>

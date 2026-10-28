@@ -66,17 +66,17 @@ function DealerModal({ open, dealer, onClose, onSubmit }: { open: boolean; deale
       footer={<ModalActions onCancel={onClose} submitLabel={dealer ? "Update Dealer" : "Add Dealer"} loading={saving} form="dealer-form" />}
     >
       <form id="dealer-form" onSubmit={submit} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Business Name" className="col-span-2" required value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
           <Field label="Contact Number" required value={form.contact} onChange={(e) => setForm((prev) => ({ ...prev, contact: e.target.value }))} />
           <Field label="Location/Region" required value={form.location} onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="GST Number" required className="font-mono" value={form.gstNumber} onChange={(e) => setForm((prev) => ({ ...prev, gstNumber: e.target.value }))} />
           <Field label="PAN Number" className="font-mono" value={form.panNumber} onChange={(e) => setForm((prev) => ({ ...prev, panNumber: e.target.value }))} />
         </div>
         {dealer && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField label="Status" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as Dealer["status"] }))}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
@@ -95,7 +95,7 @@ function DealerModal({ open, dealer, onClose, onSubmit }: { open: boolean; deale
         <div className="space-y-4">
           <label className="block text-sm font-semibold text-gray-900">Business Address</label>
           <input type="text" placeholder="Street Address" value={form.address.street} onChange={addr("street")} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500" />
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {(["city", "state", "zip"] as const).map((k) => (
               <input key={k} type="text" placeholder={k === "zip" ? "Zip" : k[0].toUpperCase() + k.slice(1)} value={form.address[k]} onChange={addr(k)} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500" />
             ))}

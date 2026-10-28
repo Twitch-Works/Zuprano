@@ -73,6 +73,7 @@ const categoryRow = (c: Partial<Category>) => {
     description: c.description,
     image: c.image,
     is_visible: c.isVisible,
+    parent_id: c.parentId,
     sort_order: c.sortOrder,
   };
   Object.keys(row).forEach((k) => row[k] === undefined && delete row[k]);

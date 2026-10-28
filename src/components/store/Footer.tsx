@@ -1,80 +1,95 @@
 import Link from "next/link";
 import { Instagram, Twitter } from "lucide-react";
+import { categoryHref } from "@/lib/catalog";
 
-const linkCls = "text-white/70 hover:text-white hover:text-orange-600 transition-colors";
+const linkCls = "text-white/65 hover:text-orange-500 transition-colors";
+
+const COLUMNS = [
+  {
+    title: "Mobiles",
+    links: ["Apple", "Samsung", "OnePlus", "Redmi", "Google Pixel", "Mobile Phones"].map((n) => ({
+      label: n === "Mobile Phones" ? "All Mobiles" : n,
+      href: categoryHref(n),
+    })),
+  },
+  {
+    title: "Accessories",
+    links: ["Chargers & Adapters", "Power Banks", "Earbuds & Headphones", "Smartwatches", "Phone Cases & Covers", "Tempered Glass"].map((n) => ({
+      label: n,
+      href: categoryHref(n),
+    })),
+  },
+  {
+    title: "Help",
+    links: [
+      { label: "Track Order", href: "/tracking" },
+      { label: "My Orders", href: "/account?tab=Orders" },
+      { label: "Returns & Exchange", href: "#" },
+      { label: "Warranty Policy", href: "#" },
+      { label: "Bulk Orders", href: "#" },
+      { label: "Email Us", href: "mailto:support@zuprano.com" },
+    ],
+  },
+];
 
 export function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className="bg-[#0f0f0f] text-white font-sans w-full">
+    <footer className="bg-[#0f0f0f] text-white w-full">
       <div className="h-px bg-gradient-to-r from-transparent via-orange-600 to-transparent" />
-      <div className="max-w-[1400px] mx-auto px-6 py-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-16 mb-24">
-          <div className="space-y-8">
-            <div className="text-2xl font-black tracking-tighter uppercase">ZUPRANO</div>
-            <p className="text-[12px] font-medium text-white/70 leading-relaxed max-w-xs">
-              Premium iPhone accessories. Designed with precision. Built to protect. Made in India for the world.
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-10 py-12 md:py-20">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10 md:gap-12 mb-12 md:mb-16">
+          <div className="col-span-2 md:col-span-4 lg:col-span-2 space-y-5">
+            <div className="text-2xl font-black tracking-tighter">ZUPRANO</div>
+            <p className="text-[13px] text-white/65 leading-relaxed max-w-sm">
+              Your mobile store. The latest smartphones from every major brand, plus the chargers, audio and protection to go with them. Genuine
+              products, fast delivery across India.
             </p>
-            <div className="flex gap-4">
-              {[Instagram, Twitter].map((Icon, i) => (
+            <div className="flex gap-3">
+              {[
+                { Icon: Instagram, label: "Instagram" },
+                { Icon: Twitter, label: "Twitter" },
+              ].map(({ Icon, label }) => (
                 <a
-                  key={i}
+                  key={label}
                   href="#"
-                  className="w-12 h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-orange-600 hover:border-orange-600 transition-all hover:scale-110"
+                  aria-label={label}
+                  className="w-10 h-10 rounded-full bg-white/10 border border-white/15 flex items-center justify-center hover:bg-orange-600 hover:border-orange-600 transition-colors"
                 >
-                  <Icon size={20} />
+                  <Icon size={18} />
                 </a>
               ))}
             </div>
           </div>
-          <div>
-            <h4 className="text-[13px] font-bold mb-8 text-orange-600">Shop</h4>
-            <ul className="space-y-4 text-[12px] font-medium text-white/70">
-              <li><Link href="/shop" className={linkCls}>All Products</Link></li>
-              <li><Link href="/shop?category=Transparent%20Covers" className={linkCls}>Transparent Cases</Link></li>
-              <li><Link href="/shop?category=Back%20Covers" className={linkCls}>Back Covers</Link></li>
-              <li><Link href="/shop?category=Powerbanks" className={linkCls}>Powerbanks</Link></li>
-              <li><Link href="/shop?category=Screen%20Protectors" className={linkCls}>Screen Protection</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-[13px] font-bold mb-8 text-orange-600">Service</h4>
-            <ul className="space-y-4 text-[12px] font-medium text-white/70">
-              <li><Link href="/tracking" className={linkCls}>Track Order</Link></li>
-              <li><a href="#" className={linkCls}>Returns &amp; Exchange</a></li>
-              <li><a href="#" className={linkCls}>Warranty Policy</a></li>
-              <li><a href="#" className={linkCls}>Bulk Orders</a></li>
-              <li><a href="mailto:support@zuprano.com" className={linkCls}>Email Us</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-[13px] font-bold mb-8 text-orange-600">About</h4>
-            <ul className="space-y-4 text-[12px] font-medium text-white/70">
-              {["Our Story", "Design Philosophy", "Materials & Quality", "Testimonials", "Careers"].map((l) => (
-                <li key={l}><a href="#" className={linkCls}>{l}</a></li>
-              ))}
-            </ul>
-          </div>
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-[13px] font-bold mb-6 text-orange-600">Why Choose Us</h4>
-              <ul className="space-y-3 text-[12px] text-white/70 font-medium">
-                {["Expert Tested", "Lifetime Support", "Premium Quality"].map((l) => (
-                  <li key={l} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-600" />
-                    {l}
+          {COLUMNS.map((col) => (
+            <div key={col.title}>
+              <h4 className="text-[13px] font-bold mb-4 md:mb-6 text-orange-500">{col.title}</h4>
+              <ul className="space-y-3 text-[13px]">
+                {col.links.map((l) => (
+                  <li key={l.label}>
+                    {l.href.startsWith("/") ? (
+                      <Link href={l.href} className={linkCls}>
+                        {l.label}
+                      </Link>
+                    ) : (
+                      <a href={l.href} className={linkCls}>
+                        {l.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
             </div>
-          </div>
+          ))}
         </div>
-        <div className="h-px bg-white/10 mb-16" />
-        <div className="flex flex-col items-start gap-8 md:gap-0 md:flex-row md:justify-between md:items-center">
-          <p className="text-[11px] font-medium text-white/60">© {year} Zuprano. All Rights Reserved. Crafted with Precision and Purpose.</p>
-          <div className="flex flex-wrap gap-6 md:gap-12 text-[11px] font-medium text-white/60">
-            {["Privacy Policy", "Terms of Sale", "Legal Notice", "Compliance"].map((l) => (
-              <a key={l} href="#" className="text-white/60 hover:text-orange-600 transition-colors">{l}</a>
+        <div className="h-px bg-white/10 mb-8" />
+        <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+          <p className="text-[12px] text-white/50">© {year} Zuprano. All rights reserved.</p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12px]">
+            {["Privacy Policy", "Terms of Sale", "Legal Notice"].map((l) => (
+              <a key={l} href="#" className="text-white/50 hover:text-orange-500 transition-colors">
+                {l}
+              </a>
             ))}
           </div>
         </div>

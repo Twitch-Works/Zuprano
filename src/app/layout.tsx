@@ -5,29 +5,28 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Mobile Cases, Accessories & More | Zuprano - Premium Quality, Free Shipping",
+  title: "Zuprano | Buy Mobile Phones, Accessories & Cases Online",
   description:
-    "Zuprano - Premium mobile accessories online. Shop phone cases, powerbanks, screen protectors, phone stands & more. Fast shipping across India. Authentic products with warranty.",
+    "Shop the latest smartphones from Apple, Samsung, OnePlus, Xiaomi, Redmi, Realme, Vivo, Oppo, Motorola, Nothing and Google Pixel, plus chargers, earbuds, power banks, cases and screen protectors. Genuine products, fast delivery across India.",
   keywords:
-    "phone cases, mobile accessories, transparent phone cases, powerbank, screen protector, phone stand, premium cases, India",
+    "mobile phones, smartphones, buy mobile online, iPhone, Samsung Galaxy, OnePlus, Redmi, Pixel, phone accessories, chargers, earbuds, power bank, phone cases, tempered glass, India",
   authors: [{ name: "Zuprano" }],
   icons: { icon: "/logo.svg" },
   openGraph: {
     type: "website",
     siteName: "Zuprano",
-    title: "Zuprano | Premium Mobile Accessories Store",
+    title: "Zuprano | Your Mobile Store",
     description:
-      "Shop premium mobile cases, powerbanks, screen protectors & accessories. Free shipping on orders above ₹500. Authentic products with warranty guaranteed.",
+      "The latest smartphones from every major brand, with accessories and protection to match. Free delivery on orders above ₹500. Genuine products with brand warranty.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Zuprano | Mobile Accessories Online Store",
-    description:
-      "Premium mobile accessories: cases, powerbanks, screen protectors. Free shipping, authentic products, fast delivery across India.",
+    title: "Zuprano | Mobile Phones & Accessories",
+    description: "Smartphones, chargers, earbuds, cases and screen protection. Genuine products, fast delivery across India.",
   },
 };
 
-export const viewport: Viewport = { themeColor: "#EA580C" };
+export const viewport: Viewport = { themeColor: "#EA580C", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

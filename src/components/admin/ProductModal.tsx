@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, LoaderCircle, Package, Settings2, Tag, Upload, X } from "lucide-react";
+import { Eye, EyeOff, ListChecks, LoaderCircle, Package, Plus, Settings2, Tag, Trash2, Upload, X } from "lucide-react";
 import { uploadProductImage, useCategories } from "@/lib/admin/data";
-import type { Product } from "@/lib/types";
+import { PHONES_SLUG, buildTree, canonicalCategory, groupOf } from "@/lib/catalog";
+import type { Product, Spec } from "@/lib/types";
+
+const PHONE_SPEC_LABELS = ["Display", "Processor", "RAM", "Storage", "Camera", "Front Camera", "Battery", "OS", "Network"];
+
+/** Phone brand subcategories whose maker name differs from the category name. */
+const BRAND_FOR_CATEGORY: Record<string, string> = { "Google Pixel": "Google" };
 
 interface FormState {
   name: string;
@@ -22,6 +28,7 @@ interface FormState {
   tags: string;
   compatibility: string;
   variants: string;
+  specs: Spec[];
 }
 
 const empty: FormState = {
@@ -41,6 +48,7 @@ const empty: FormState = {
   tags: "",
   compatibility: "",
   variants: "",
+  specs: [],
 };
 
 export type ProductDraft = Partial<Product> & { id?: string };
@@ -57,10 +65,11 @@ export function ProductModal({
   onSubmit: (p: Partial<Product>) => Promise<void>;
 }) {
   const { categories } = useCategories();
-  const firstCategory = categories.find((c) => c.isVisible)?.name ?? categories[0]?.name ?? "Uncategorized";
+  const tree = buildTree(categories);
+  const firstCategory = tree[0]?.children[0]?.name ?? tree[0]?.name ?? categories[0]?.name ?? "Uncategorized";
   const [form, setForm] = useState<FormState>(empty);
   const [urlInput, setUrlInput] = useState("");
-  const [tab, setTab] = useState<"general" | "pricing" | "advanced">("general");
+  const [tab, setTab] = useState<"general" | "pricing" | "specs" | "advanced">("general");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -87,11 +96,36 @@ export function ProductModal({
       tags: product.tags?.join(", ") ?? "",
       compatibility: product.compatibility?.join(", ") ?? "",
       variants: product.variants && product.variants.length ? JSON.stringify(product.variants) : "",
+      specs: product.specs ?? [],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, isOpen]);
 
   if (!isOpen) return null;
+
+  const isPhone = canonicalCategory(groupOf(form.category, categories)?.name ?? "") === PHONES_SLUG;
+  const system = categories.find((c) => c.isSystem);
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const selectedHidden = (() => {
+    const c = categories.find((x) => x.name === form.category);
+    return !!c && (!c.isVisible || (!!c.parentId && byId.get(c.parentId)?.isVisible === false));
+  })();
+
+  // Picking a phone brand fills in the brand when it is still empty.
+  const onCategory = (name: string) =>
+    setForm((f) => {
+      const c = categories.find((x) => x.name === name);
+      const group = c?.parentId ? byId.get(c.parentId) : undefined;
+      const brandFromCategory = group && canonicalCategory(group.name) === PHONES_SLUG ? BRAND_FOR_CATEGORY[name] ?? name : "";
+      return { ...f, category: name, brand: f.brand.trim() ? f.brand : brandFromCategory };
+    });
+
+  const setSpec = (i: number, patch: Partial<Spec>) => setForm((f) => ({ ...f, specs: f.specs.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
+  const addPhoneTemplate = () =>
+    setForm((f) => {
+      const have = new Set(f.specs.map((s) => s.label.toLowerCase()));
+      return { ...f, specs: [...f.specs, ...PHONE_SPEC_LABELS.filter((l) => !have.has(l.toLowerCase())).map((label) => ({ label, value: "" }))] };
+    });
 
   // Selling price, MRP and discount stay consistent whichever one is edited.
   const onPrice = (v: string) => {
@@ -176,6 +210,7 @@ export function ProductModal({
         tags: split(form.tags),
         compatibility: split(form.compatibility),
         variants,
+        specs: form.specs.map((x) => ({ label: x.label.trim(), value: x.value.trim() })).filter((x) => x.label && x.value),
       });
       onClose();
     } catch (err) {
@@ -188,7 +223,8 @@ export function ProductModal({
   const tabs = [
     { id: "general" as const, label: "General Info", icon: Package },
     { id: "pricing" as const, label: "Pricing & Availability", icon: Tag },
-    { id: "advanced" as const, label: "Technical Details", icon: Settings2 },
+    { id: "specs" as const, label: isPhone ? "Phone Specs" : "Specifications", icon: ListChecks },
+    { id: "advanced" as const, label: "Variants & Details", icon: Settings2 },
   ];
   const smallLabel = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3";
   const label = "block text-xs font-black text-gray-400 uppercase tracking-widest mb-2";
@@ -197,12 +233,12 @@ export function ProductModal({
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col pointer-events-auto animate-in">
-          <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
-            <div>
-              <h2 className="text-3xl font-black text-gray-900 tracking-tight font-display">{product?.id ? "Edit Product" : "Create Product"}</h2>
-              <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-[0.2em]">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-3xl w-full max-h-[94vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col pointer-events-auto animate-in">
+          <div className="p-4 sm:p-6 md:p-8 border-b border-gray-100 flex items-center justify-between gap-4 bg-white shrink-0">
+            <div className="min-w-0">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-gray-900 tracking-tight font-display">{product?.id ? "Edit Product" : "Create Product"}</h2>
+              <p className="text-[10px] font-bold text-gray-400 mt-1 md:mt-2 uppercase tracking-[0.2em] truncate">
                 {product?.id ? `Product Reference: ${product.id}` : "Catalog Entry Details"}
               </p>
             </div>
@@ -215,7 +251,7 @@ export function ProductModal({
             </button>
           </div>
 
-          <div className="bg-gray-50/50 border-b border-gray-100 px-8 flex items-center gap-8 shrink-0 overflow-x-auto">
+          <div className="bg-gray-50/50 border-b border-gray-100 px-4 md:px-8 flex items-center gap-5 md:gap-8 shrink-0 overflow-x-auto no-scrollbar">
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -231,7 +267,7 @@ export function ProductModal({
             ))}
           </div>
 
-          <form id="product-form" onSubmit={submit} className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+          <form id="product-form" onSubmit={submit} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 custom-scrollbar">
             {tab === "general" && (
               <div className="space-y-6">
                 <div className="space-y-4">
@@ -257,7 +293,7 @@ export function ProductModal({
                       Add URL
                     </button>
                   </div>
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                     {form.images.map((src, i) => (
                       <div key={`${src}-${i}`} className="relative group aspect-square">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -269,7 +305,7 @@ export function ProductModal({
                           type="button"
                           onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, j) => j !== i) }))}
                           aria-label="Remove image"
-                          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-1 shadow-lg sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         >
                           <X size={10} />
                         </button>
@@ -288,15 +324,15 @@ export function ProductModal({
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
                     <label className={smallLabel}>Product Title</label>
                     <input
                       type="text"
                       value={form.name}
                       onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                       className="w-full px-4 py-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-orange-500 transition-all outline-none font-bold text-gray-900 text-lg tracking-tight placeholder-gray-300"
-                      placeholder="e.g., iPhone 16 Pro Rugged Case"
+                      placeholder="e.g., Samsung Galaxy S24 Ultra or iPhone 16 Rugged Case"
                     />
                   </div>
                   <div>
@@ -305,19 +341,32 @@ export function ProductModal({
                   </div>
                   <div>
                     <label className={label}>Category</label>
-                    <select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} className={input}>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.name}
-                          {c.isSystem ? " (hidden from store)" : c.isVisible ? "" : " (hidden category)"}
-                        </option>
-                      ))}
+                    <select value={form.category} onChange={(e) => onCategory(e.target.value)} className={input}>
+                      {tree.map((g) =>
+                        g.children.length ? (
+                          <optgroup key={g.id} label={g.isVisible ? g.name : `${g.name} (hidden)`}>
+                            {g.children.map((c) => (
+                              <option key={c.id} value={c.name}>
+                                {c.name}
+                                {c.isVisible ? "" : " (hidden)"}
+                              </option>
+                            ))}
+                            <option value={g.name}>{g.name} (general)</option>
+                          </optgroup>
+                        ) : (
+                          <option key={g.id} value={g.name}>
+                            {g.name}
+                            {g.isVisible ? "" : " (hidden)"}
+                          </option>
+                        ),
+                      )}
+                      {system && <option value={system.name}>{system.name} (hidden from store)</option>}
                     </select>
-                    {categories.find((c) => c.name === form.category && !c.isVisible) && (
+                    {selectedHidden && (
                       <p className="text-[11px] text-amber-600 mt-2 font-medium">Products in this category are not shown in the store.</p>
                     )}
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <label className={label}>Description</label>
                     <textarea
                       value={form.description}
@@ -332,7 +381,7 @@ export function ProductModal({
 
             {tab === "pricing" && (
               <div className="space-y-8 animate-in">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className={smallLabel}>Selling Price (SP)</label>
                     <div className="relative group">
@@ -406,6 +455,59 @@ export function ProductModal({
               </div>
             )}
 
+            {tab === "specs" && (
+              <div className="space-y-4 animate-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <p className="text-xs text-gray-500">
+                    {isPhone
+                      ? "Shown as key highlights and a full spec sheet on the product page, and as a short line on product cards."
+                      : "Optional. Shown in the Specifications section of the product page."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addPhoneTemplate}
+                    className="shrink-0 px-4 py-2 rounded-xl bg-gray-900 text-white text-[10px] font-bold uppercase tracking-[0.1em]"
+                  >
+                    Add phone spec fields
+                  </button>
+                </div>
+                {form.specs.length === 0 && <p className="text-sm text-gray-400 py-6 text-center border border-dashed border-gray-200 rounded-xl">No specifications yet.</p>}
+                {form.specs.map((sp, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_auto] sm:grid-cols-[180px_1fr_auto] gap-2 items-center">
+                    <input
+                      type="text"
+                      value={sp.label}
+                      onChange={(e) => setSpec(i, { label: e.target.value })}
+                      placeholder="Label, e.g. RAM"
+                      className={`${input} col-span-2 sm:col-span-1 text-sm`}
+                    />
+                    <input
+                      type="text"
+                      value={sp.value}
+                      onChange={(e) => setSpec(i, { value: e.target.value })}
+                      placeholder={sp.label === "Display" ? 'e.g. 6.7" AMOLED, 120Hz' : "Value"}
+                      className={`${input} text-sm font-medium`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, specs: f.specs.filter((_, j) => j !== i) }))}
+                      aria-label="Remove specification"
+                      className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, specs: [...f.specs, { label: "", value: "" }] }))}
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                >
+                  <Plus size={16} /> Add specification
+                </button>
+              </div>
+            )}
+
             {tab === "advanced" && (
               <div className="space-y-6">
                 <div>
@@ -427,7 +529,7 @@ export function ProductModal({
                   </div>
                 </div>
                 <div>
-                  <label className={label}>Device Compatibility</label>
+                  <label className={label}>{isPhone ? "Device Compatibility (usually empty for phones)" : "Device Compatibility"}</label>
                   <textarea
                     value={form.compatibility}
                     onChange={(e) => setForm((prev) => ({ ...prev, compatibility: e.target.value }))}
@@ -441,10 +543,15 @@ export function ProductModal({
                     value={form.variants}
                     onChange={(e) => setForm((prev) => ({ ...prev, variants: e.target.value }))}
                     className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-orange-500 transition-all outline-none font-mono text-xs font-bold text-blue-600 min-h-[80px]"
-                    placeholder='[{"id": "black", "name": "Color", "value": "Black", "price": 499, "stock": 10}]'
+                    placeholder={
+                      isPhone
+                        ? '[{"id": "8-128", "name": "Storage", "value": "8GB / 128GB", "price": 19999, "stock": 10}, {"id": "8-256", "name": "Storage", "value": "8GB / 256GB", "price": 21999, "stock": 10}]'
+                        : '[{"id": "black", "name": "Color", "value": "Black", "price": 499, "stock": 10}]'
+                    }
                   />
                   <p className="text-[10px] text-gray-400 mt-2">
-                    Each variant may set its own price and stock. A plain list like <span className="font-mono">Red, Blue</span> also works.
+                    Each variant may set its own price and stock{isPhone ? " (e.g. one per RAM / storage option)" : ""}. A plain list like{" "}
+                    <span className="font-mono">Red, Blue</span> also works.
                   </p>
                 </div>
               </div>
@@ -452,7 +559,7 @@ export function ProductModal({
             {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
           </form>
 
-          <div className="p-8 border-t border-gray-100 bg-white flex items-center justify-end gap-5 shrink-0">
+          <div className="p-4 md:p-8 border-t border-gray-100 bg-white flex items-center justify-end gap-4 md:gap-5 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               onClick={onClose}
@@ -464,7 +571,7 @@ export function ProductModal({
               form="product-form"
               type="submit"
               disabled={saving || uploading}
-              className="px-10 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-orange-600/20 active:scale-95 transition-all disabled:opacity-50"
+              className="px-6 md:px-10 py-3 md:py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-orange-600/20 active:scale-95 transition-all disabled:opacity-50"
             >
               {saving ? "Saving..." : product?.id ? "Synchronize Updates" : "Publish Product"}
             </button>
@@ -492,9 +599,9 @@ function Toggle({
 }) {
   const active = tone === "orange" ? "bg-orange-600" : "bg-green-600";
   return (
-    <div className={`${tone === "orange" ? "bg-orange-50 border-orange-100" : "bg-gray-50 border-gray-100"} rounded-2xl p-6 flex items-center justify-between border gap-4`}>
+    <div className={`${tone === "orange" ? "bg-orange-50 border-orange-100" : "bg-gray-50 border-gray-100"} rounded-2xl p-4 md:p-6 flex items-center justify-between border gap-4`}>
       <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors shrink-0 ${on ? `${active} text-white` : "bg-gray-200 text-gray-400"}`}>{icon}</div>
+        <div className={`hidden sm:flex w-12 h-12 rounded-xl items-center justify-center transition-colors shrink-0 ${on ? `${active} text-white` : "bg-gray-200 text-gray-400"}`}>{icon}</div>
         <div>
           <h4 className="font-bold text-gray-900">{title}</h4>
           <p className="text-xs text-gray-500">{description}</p>

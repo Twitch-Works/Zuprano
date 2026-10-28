@@ -345,7 +345,7 @@ function EditOrder({ order, onClose, onSave }: { order: Order | null; onClose: (
   return (
     <Modal open onClose={onClose} title={`Update ${order.orderNumber}`} width="max-w-lg" footer={<ModalActions onCancel={onClose} submitLabel="Save Changes" loading={saving} form="edit-order" />}>
       <form id="edit-order" onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SelectField label="Order Status" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as OrderStatus }))} disabled={order.status === "cancelled"}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>

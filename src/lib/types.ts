@@ -6,6 +6,11 @@ export interface Variant {
   stock: number;
 }
 
+export interface Spec {
+  label: string;
+  value: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -28,6 +33,8 @@ export interface Product {
   compatibility: string[];
   /** Raw variants as stored (admin edits this as JSON). Use `normalizeVariants` for the storefront. */
   variants: unknown[];
+  /** Ordered spec sheet, e.g. Display, Processor, RAM. Mostly used for phones. */
+  specs: Spec[];
   rating: number;
   reviews: number;
   createdAt: string;
@@ -178,6 +185,8 @@ export interface Category {
   image: string;
   isVisible: boolean;
   isSystem: boolean;
+  /** Set for subcategories; top-level groups have none. */
+  parentId: string | null;
   sortOrder: number;
   createdAt: string;
 }

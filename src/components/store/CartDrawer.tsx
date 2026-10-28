@@ -20,9 +20,9 @@ export function CartDrawer() {
       <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[450px] bg-white shadow-2xl z-[210] flex flex-col animate-slide-in-right">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <h2 className="text-[13px] font-black uppercase tracking-[0.2em] text-black">Arsenal</h2>
+            <h2 className="text-[13px] font-black uppercase tracking-[0.2em] text-black">Your Cart</h2>
             <div className="w-1 h-1 bg-gray-300 rounded-full" />
-            <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">{items.length} Units</span>
+            <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">{items.length} {items.length === 1 ? "Item" : "Items"}</span>
           </div>
           <button onClick={closeCartDrawer} aria-label="Close cart" className="p-1.5 hover:bg-gray-100 rounded-full transition-all text-gray-400">
             <X size={18} />
@@ -55,7 +55,7 @@ export function CartDrawer() {
                   <div className="flex-1 flex items-center justify-between min-w-0">
                     <div className="flex flex-col min-w-0 pr-2">
                       <h3 className="font-black text-black text-[10px] uppercase tracking-tighter truncate">{item.name}</h3>
-                      <span className="text-[8px] font-bold text-gray-400 uppercase truncate">{item.variantLabel || "STD"}</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase truncate">{item.variantLabel || "STD"}</span>
                     </div>
                     <div className="flex items-center bg-gray-50 rounded-md border border-gray-100 scale-90">
                       <button
@@ -65,7 +65,7 @@ export function CartDrawer() {
                       >
                         <Minus size={10} />
                       </button>
-                      <span className="w-4 text-center font-black text-[9px] text-black">{item.quantity}</span>
+                      <span className="w-4 text-center font-black text-[10px] text-black">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         aria-label="Increase"
@@ -89,11 +89,11 @@ export function CartDrawer() {
             <div className="p-5 space-y-4 border-t border-gray-100 bg-white shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
               <div className="flex justify-between items-end">
                 <div className="space-y-1">
-                  <span className="block text-[8px] font-black text-gray-400 uppercase tracking-[0.3em]">Total Terminal Value</span>
+                  <span className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Total Terminal Value</span>
                   <span className="text-2xl font-black text-black tracking-tighter italic">₹{subtotal.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">
+                  <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
                     Fulfillment: {freeShipping ? "FREE" : `₹${SHIPPING_FEE}`}
                   </span>
                 </div>

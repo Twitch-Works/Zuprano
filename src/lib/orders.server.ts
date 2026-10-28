@@ -56,9 +56,16 @@ export async function priceLines(db: SupabaseClient, lines: LineInput[], { allow
   const { data: rows, error } = await db.from("products").select("*").in("id", ids);
   if (error) throw new OrderError("Could not load products", 500);
   const products = new Map((rows ?? []).map((r) => [r.id as string, toProduct(r)]));
-  // The service role bypasses RLS, so enforce category visibility here as well.
-  const { data: visibleCats } = await db.from("categories").select("name").eq("is_visible", true);
-  const visible = new Set((visibleCats ?? []).map((c) => c.name as string));
+  // The service role bypasses RLS, so enforce category visibility (the category and its group) here as well.
+  const { data: catRows } = await db.from("categories").select("id, name, parent_id, is_visible");
+  const cats = new Map((catRows ?? []).map((c) => [c.id as string, c]));
+  const groupName = new Map<string, string>();
+  const visible = new Set<string>();
+  for (const c of catRows ?? []) {
+    const group = c.parent_id ? cats.get(c.parent_id) : undefined;
+    if (group) groupName.set(c.name, group.name);
+    if (c.is_visible && (!group || group.is_visible)) visible.add(c.name);
+  }
 
   const items: OrderItem[] = [];
   const perProduct = new Map<string, number>();
@@ -86,7 +93,7 @@ export async function priceLines(db: SupabaseClient, lines: LineInput[], { allow
 
   const { data: tierRows } = await db.from("pricing").select("*").eq("status", "active");
   const totals = computeTotals(
-    items.map((i) => ({ productId: i.productId, name: i.name, category: products.get(i.productId)?.category, price: i.price, quantity: i.quantity })),
+    items.map((i) => ({ productId: i.productId, name: i.name, category: products.get(i.productId)?.category, group: groupName.get(products.get(i.productId)?.category ?? ""), price: i.price, quantity: i.quantity })),
     (tierRows ?? []).map(toPricingTier),
   );
   return { items, totals };

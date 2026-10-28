@@ -8,6 +8,8 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html, body { overflow-x: clip; }
+
 body {
   background-color: #fff;
   color: #000;
@@ -35,11 +37,21 @@ body {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-in-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
 
 /* The original apps use tailwindcss-animate style class names; a fade is the visible effect. */
 .animate-in { animation: fade-in 0.5s ease-out; }
 .animate-slideInUp { animation: slideInUp 0.2s ease-out; }
 .animate-slide-in-right { animation: slide-in-right 0.7s cubic-bezier(0.23, 1, 0.32, 1); }
+.animate-slide-in-left { animation: slide-in-left 0.4s cubic-bezier(0.23, 1, 0.32, 1); }
+.animate-slide-in-up { animation: slide-in-up 0.35s cubic-bezier(0.23, 1, 0.32, 1); }
 .animate-skeleton {
   animation: shimmer 2s infinite;
   background: linear-gradient(90deg, #f0f0f0, #e0e0e0, #f0f0f0);
